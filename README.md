@@ -1,0 +1,2 @@
+# StudentRiskGuard
+大学生负债压力自检与理性消费科普Agent

@@ -1,0 +1,106 @@
+{
+  "version": "scorecard-v2.1-fused-20261103",
+  "generated_at": "2026-11-03T19:05:26",
+  "total_score": 100,
+  "fusion": {
+    "questionnaire_weight": 0.3,
+    "bnpl_candidates": {
+      "dti_warn": 0.1896,
+      "dti_high": 0.2923
+    },
+    "questionnaire_candidates": {
+      "dti_warn": 0.3063,
+      "dti_high": 0.44,
+      "inst_multi": 3.5
+    },
+    "fused_raw": {
+      "dti_warn": 0.2246,
+      "dti_high": 0.3366
+    },
+    "fused_constrained": {
+      "dti_warn": 0.3,
+      "dti_high": 0.5,
+      "inst_multi": 4
+    },
+    "note": "DTI加边界约束；分期笔数不使用BNPL融合，因为BNPL字段是期数而非负债笔数"
+  },
+  "rules": {
+    "dti_ratio": {
+      "threshold_warn": 0.3,
+      "threshold_high": 0.5,
+      "deduct_warn": 15,
+      "deduct_high": 35,
+      "source": "BNPL违约组中位数/75分位 + 问卷严格逾期组中位数/75分位，w=0.3加权；行业50%兜底",
+      "calibration_status": "fused_with_questionnaire"
+    },
+    "installment_count": {
+      "threshold_multi": 4,
+      "deduct_multi": 20,
+      "source": "问卷严格逾期组分期笔数中位数四舍五入；BNPL期数不参与融合",
+      "calibration_status": "questionnaire_calibrated"
+    },
+    "irr_rate": {
+      "threshold_high": 0.24,
+      "deduct_high": 25,
+      "source": "法定高利贷警戒线24%",
+      "calibration_status": "industry_anchor"
+    },
+    "borrow_to_repay": {
+      "deduct": 30,
+      "source": "以贷养贷为极高风险信号，学术与监管定性共识",
+      "calibration_status": "expert_rule"
+    },
+    "overdue_history_strict": {
+      "deduct": 25,
+      "source": "问卷严格逾期组DTI区分显著，2次及以上逾期高扣分",
+      "calibration_status": "questionnaire_supported"
+    },
+    "cognitive_bias": {
+      "threshold_low_awareness": 3,
+      "deduct": 10,
+      "source": "问卷D模块量表≤3分视为认知薄弱",
+      "calibration_status": "questionnaire_supported"
+    }
+  },
+  "risk_scoring": {
+    "max_scores": {
+      "dti_risk": 40,
+      "installment_risk": 25,
+      "irr_risk": 20,
+      "behavior_risk": 15
+    },
+    "dti_bands": [
+      { "upper": 0.1, "score": 0 },
+      { "upper": 0.3, "score": 16 },
+      { "upper": 0.45, "score": 24 },
+      { "upper": 0.6, "score": 32 },
+      { "upper": 999, "score": 40 }
+    ],
+    "installment_bands": [
+      { "upper": 1, "score": 8 },
+      { "upper": 2, "score": 20 },
+      { "upper": 3, "score": 20 },
+      { "upper": 4, "score": 22 },
+      { "upper": 999, "score": 25 }
+    ],
+    "irr_bands": [
+      { "upper": 0.1, "score": 0 },
+      { "upper": 0.18, "score": 10 },
+      { "upper": 0.24, "score": 15 },
+      { "upper": 999, "score": 20 }
+    ],
+    "behavior_scores": {
+      "borrow_to_repay": 15,
+      "overdue_strict": 8,
+      "cognitive_weak": 8,
+      "normal": 0
+    },
+    "note": "M2总分=四维分数之和；rules段用于大模型解释，不直接参与分数计算"
+  },
+  "risk_levels": [
+    { "min": 80, "label": "低风险" },
+    { "min": 60, "label": "关注" },
+    { "min": 40, "label": "中风险" },
+    { "min": 0, "label": "高风险" }
+  ]
+}

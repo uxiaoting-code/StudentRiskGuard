@@ -77,3 +77,8 @@ desktop.ini
 .idea/
 *.swp
 *.swo
+# M2 raw data - never commit source survey or third-party detail data
+analysis/m2/data/
+analysis/m2/raw/
+*大学生负债压力自检与金融认知调查*.xlsx
+Buy_Now_Pay_Later_BNPL_CreditRisk_Dataset.csv

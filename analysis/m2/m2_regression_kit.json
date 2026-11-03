@@ -1,0 +1,179 @@
+{
+  "note": "M2回归包：把demo_cases中的request送入M2内核，期望等级见expected_level；M0分数仅参考，等级必须一致",
+  "cases": {
+    "S-01": {
+      "expected_level": "低风险",
+      "expected_score_m0": 8,
+      "request": {
+        "monthly_disposable_allowance": 2500.0,
+        "monthly_part_time_income": 500.0,
+        "debts": [
+          {
+            "id": "d-01-1",
+            "label": "数码分期",
+            "remaining_principal": 1200.0,
+            "monthly_payment": 205.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.05
+          }
+        ],
+        "forecast_months": 12,
+        "savings_balance": 3000.0,
+        "recurring_subscriptions": []
+      }
+    },
+    "S-02": {
+      "expected_level": "关注",
+      "expected_score_m0": 44,
+      "request": {
+        "monthly_disposable_allowance": 1800.0,
+        "monthly_part_time_income": 400.0,
+        "debts": [
+          {
+            "id": "d-02-1",
+            "label": "电商分期",
+            "remaining_principal": 3400.0,
+            "monthly_payment": 593.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.08
+          },
+          {
+            "id": "d-02-2",
+            "label": "会员月付",
+            "remaining_principal": 600.0,
+            "monthly_payment": 100.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.06
+          }
+        ],
+        "forecast_months": 12,
+        "savings_balance": 1500.0,
+        "recurring_subscriptions": []
+      }
+    },
+    "S-03": {
+      "expected_level": "中风险",
+      "expected_score_m0": 59,
+      "request": {
+        "monthly_disposable_allowance": 1500.0,
+        "monthly_part_time_income": 0.0,
+        "debts": [
+          {
+            "id": "d-03-1",
+            "label": "数码分期",
+            "remaining_principal": 2400.0,
+            "monthly_payment": 220.0,
+            "remaining_periods": 12,
+            "nominal_apr": 0.09
+          },
+          {
+            "id": "d-03-2",
+            "label": "电商分期",
+            "remaining_principal": 1800.0,
+            "monthly_payment": 200.0,
+            "remaining_periods": 10,
+            "nominal_apr": 0.07
+          },
+          {
+            "id": "d-03-3",
+            "label": "先买后付",
+            "remaining_principal": 900.0,
+            "monthly_payment": 180.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.12
+          }
+        ],
+        "forecast_months": 12,
+        "savings_balance": 500.0,
+        "recurring_subscriptions": []
+      }
+    },
+    "S-04": {
+      "expected_level": "高风险",
+      "expected_score_m0": 85,
+      "request": {
+        "monthly_disposable_allowance": 1400.0,
+        "monthly_part_time_income": 0.0,
+        "debts": [
+          {
+            "id": "d-04-1",
+            "label": "电商分期",
+            "remaining_principal": 2800.0,
+            "monthly_payment": 350.0,
+            "remaining_periods": 8,
+            "nominal_apr": 0.15
+          },
+          {
+            "id": "d-04-2",
+            "label": "数码分期",
+            "remaining_principal": 2400.0,
+            "monthly_payment": 220.0,
+            "remaining_periods": 12,
+            "nominal_apr": 0.12
+          },
+          {
+            "id": "d-04-3",
+            "label": "会员月付",
+            "remaining_principal": 360.0,
+            "monthly_payment": 60.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.06
+          },
+          {
+            "id": "d-04-4",
+            "label": "先买后付",
+            "remaining_principal": 600.0,
+            "monthly_payment": 130.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.18
+          },
+          {
+            "id": "d-04-5",
+            "label": "教育培训分期",
+            "remaining_principal": 1000.0,
+            "monthly_payment": 100.0,
+            "remaining_periods": 10,
+            "nominal_apr": 0.1
+          }
+        ],
+        "forecast_months": 12,
+        "savings_balance": 200.0,
+        "recurring_subscriptions": []
+      }
+    },
+    "S-05": {
+      "expected_level": "低风险",
+      "expected_score_m0": null,
+      "request": {
+        "monthly_disposable_allowance": 2000.0,
+        "monthly_part_time_income": 300.0,
+        "debts": [
+          {
+            "id": "d-05-1",
+            "label": "电商分期",
+            "remaining_principal": 1800.0,
+            "monthly_payment": 300.0,
+            "remaining_periods": 6,
+            "nominal_apr": 0.08
+          }
+        ],
+        "forecast_months": 12,
+        "savings_balance": 800.0,
+        "recurring_subscriptions": [
+          {
+            "label": "视频会员连续包月",
+            "monthly_cost": 25.0
+          },
+          {
+            "label": "音乐会员连续包月",
+            "monthly_cost": 15.0
+          },
+          {
+            "label": "云存储订阅",
+            "monthly_cost": 10.0
+          }
+        ]
+      }
+    }
+  }
+}

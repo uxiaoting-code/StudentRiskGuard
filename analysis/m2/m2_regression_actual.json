@@ -1,0 +1,56 @@
+{
+  "scorecard_version": "scorecard-v2.1-fused-20261103",
+  "cases": [
+    {
+      "sample_id": "S-01",
+      "expected_level": "低风险",
+      "actual_level": "高风险",
+      "expected_score_m0": 8,
+      "actual_score": 20,
+      "level_match": false,
+      "score_delta": 12,
+      "max_irr": 0.085212
+    },
+    {
+      "sample_id": "S-02",
+      "expected_level": "关注",
+      "actual_level": "中风险",
+      "expected_score_m0": 44,
+      "actual_score": 54,
+      "level_match": false,
+      "score_delta": 10,
+      "max_irr": 0.157614
+    },
+    {
+      "sample_id": "S-03",
+      "expected_level": "中风险",
+      "actual_level": "关注",
+      "expected_score_m0": 59,
+      "actual_score": 66,
+      "level_match": false,
+      "score_delta": 7,
+      "max_irr": 0.656615
+    },
+    {
+      "sample_id": "S-04",
+      "expected_level": "高风险",
+      "actual_level": "低风险",
+      "expected_score_m0": 85,
+      "actual_score": 85,
+      "level_match": false,
+      "score_delta": 0,
+      "max_irr": 0.966421
+    },
+    {
+      "sample_id": "S-05",
+      "expected_level": "低风险",
+      "actual_level": "高风险",
+      "expected_score_m0": null,
+      "actual_score": 36,
+      "level_match": false,
+      "score_delta": null,
+      "max_irr": 0
+    }
+  ],
+  "all_levels_match": false
+}

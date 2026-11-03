@@ -46,6 +46,11 @@
       },
       "default": [],
       "description": "无借贷、无本金的持续性自动续费开销，不属于 debts 负债数组。"
+    },
+    "behavior": {
+      "$ref": "#/$defs/behavior",
+      "default": {},
+      "description": "学生自报的行为与韧性信号，仅进入专家规则评分，不参与 DTI 或 IRR 计算。"
     }
   },
   "$defs": {
@@ -146,6 +151,46 @@
           "type": "number",
           "exclusiveMinimum": 0,
           "description": "每月扣费金额，单位元。"
+        }
+      }
+    },
+    "behavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "borrow_to_repay": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否曾用新借款或分期偿还旧分期。"
+        },
+        "strict_overdue_count": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "default": 0,
+          "description": "过去12个月逾期次数；2次及以上触发严格逾期规则。"
+        },
+        "insufficient_months_last_3": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3,
+          "default": 0,
+          "description": "过去3个月中出现月底资金不足的月份数。"
+        },
+        "income_drop_30_cannot_cover": {
+          "type": "boolean",
+          "default": false,
+          "description": "收入下降30%时是否无法覆盖支出与当前还款。"
+        },
+        "financial_cognition_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 5,
+          "default": null,
+          "description": "金融认知量表得分；小于等于3触发认知薄弱规则。"
         }
       }
     }

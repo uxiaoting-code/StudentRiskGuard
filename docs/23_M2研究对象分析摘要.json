@@ -1,0 +1,460 @@
+{
+  "questionnaire": {
+    "raw_rows": 214,
+    "invalid_rows": 1,
+    "valid_rows": 213,
+    "valid_rate": 99.53271028037383,
+    "eligible_rows": 188,
+    "eligible_percent": 88.26291079812206,
+    "declared_debt_rows": 152,
+    "uncertain_debt_rows": 36,
+    "education": {
+      "labels": [
+        "本科一年级",
+        "本科二年级",
+        "本科三年级",
+        "本科四年级",
+        "本科五年级及以上",
+        "硕士研究生"
+      ],
+      "count": [
+        56,
+        65,
+        45,
+        22,
+        19,
+        6
+      ],
+      "percent": [
+        26.291079812206576,
+        30.51643192488263,
+        21.12676056338028,
+        10.328638497652582,
+        8.92018779342723,
+        2.8169014084507045
+      ]
+    },
+    "debt_count": {
+      "labels": [
+        "1-2笔",
+        "3-4笔",
+        "5笔及以上",
+        "不愿说明"
+      ],
+      "count": [
+        66,
+        79,
+        29,
+        14
+      ],
+      "percent": [
+        30.985915492957744,
+        37.08920187793427,
+        13.615023474178404,
+        6.572769953051644
+      ],
+      "explicit_three_plus_count": 108,
+      "explicit_three_plus_percent": 62.06896551724138,
+      "high_concentration_count": 43,
+      "high_concentration_percent": 22.872340425531913
+    },
+    "debt_types": {
+      "labels": [
+        "电商购物分期",
+        "数码产品分期",
+        "教育培训分期",
+        "会员/订阅/年付折算月付",
+        "先买后付",
+        "其他"
+      ],
+      "percent": [
+        73.40425531914893,
+        70.2127659574468,
+        61.170212765957444,
+        51.59574468085106,
+        56.38297872340425,
+        0.0
+      ]
+    },
+    "monthly_payment": {
+      "labels": [
+        "300元以下",
+        "300-599元",
+        "600-999元",
+        "1000-1499元",
+        "1500-1999元",
+        "2000元及以上",
+        "不愿说明"
+      ],
+      "count": [
+        42,
+        41,
+        48,
+        27,
+        21,
+        7,
+        2
+      ],
+      "percent": [
+        22.340425531914892,
+        21.808510638297875,
+        25.53191489361702,
+        14.361702127659576,
+        11.170212765957446,
+        3.723404255319149,
+        1.0638297872340425
+      ]
+    },
+    "principal": {
+      "labels": [
+        "3000元以下",
+        "3000-9999元",
+        "10000-19999元",
+        "20000元及以上",
+        "不清楚",
+        "不愿说明"
+      ],
+      "count": [
+        49,
+        86,
+        28,
+        21,
+        4,
+        0
+      ]
+    },
+    "duration": {
+      "labels": [
+        "6个月及以内",
+        "7-12个月",
+        "13-24个月",
+        "25个月及以上",
+        "不清楚"
+      ],
+      "count": [
+        74,
+        64,
+        34,
+        12,
+        4
+      ]
+    },
+    "self_reported_dti": {
+      "labels": [
+        "10%以下",
+        "10%-19%",
+        "20%-29%",
+        "30%-39%",
+        "40%-49%",
+        "50%及以上",
+        "无法估计"
+      ],
+      "count": [
+        53,
+        46,
+        43,
+        22,
+        19,
+        3,
+        2
+      ]
+    },
+    "pressure": [
+      {
+        "label": "过去3个月月底资金不足",
+        "count": 151,
+        "percent": 70.89201877934272
+      },
+      {
+        "label": "因还款压缩必要支出",
+        "count": 77,
+        "percent": 36.15023474178404
+      },
+      {
+        "label": "明确担心未来还款压力",
+        "count": 46,
+        "percent": 21.5962441314554
+      },
+      {
+        "label": "收入下降30%时无法覆盖",
+        "count": 45,
+        "percent": 21.12676056338028
+      }
+    ],
+    "behavior": {
+      "borrow_to_repay_count": 37,
+      "borrow_to_repay_valid_percent": 23.125,
+      "loose_overdue_count": 126,
+      "loose_overdue_percent": 68.47826086956522,
+      "strict_overdue_count": 56,
+      "strict_overdue_percent": 30.434782608695656
+    },
+    "cognition": {
+      "score_mean": 3.534037558685446,
+      "cronbach_alpha": 0.7931722062897084,
+      "weak_count": 66,
+      "weak_percent": 30.985915492957744,
+      "fee_count": 54,
+      "fee_percent": 25.352112676056336,
+      "knows_all_apr_count": 89,
+      "knows_all_apr_percent": 41.78403755868544,
+      "q19_mean": 3.3051643192488265,
+      "willing_to_use_mean": 3.248826291079812,
+      "privacy_concern_mean": 2.347417840375587
+    },
+    "product_demand": {
+      "labels": [
+        "汇总多笔分期的月供压力",
+        "计算逐笔真实年化成本",
+        "预测未来12个月现金流",
+        "模拟新增一笔分期",
+        "提供理性消费和金融科普",
+        "生成可保存的简易报告"
+      ],
+      "percent": [
+        43.1924882629108,
+        41.78403755868544,
+        38.967136150234744,
+        26.291079812206576,
+        39.436619718309856,
+        10.7981220657277
+      ]
+    },
+    "preferred_format": {
+      "labels": [
+        "100字以内短文本",
+        "图表和数字卡片",
+        "音频讲解",
+        "1-3分钟短视频",
+        "可交互情景模拟"
+      ],
+      "count": [
+        66,
+        84,
+        20,
+        33,
+        10
+      ]
+    },
+    "dti_comparison": {
+      "strict_n": 50,
+      "never_n": 58,
+      "strict_median": 0.31534090909090906,
+      "never_median": 0.225,
+      "strict_q25": 0.17777777777777778,
+      "strict_q75": 0.4375,
+      "never_q25": 0.10714285714285715,
+      "never_q75": 0.35714285714285715,
+      "p_two_sided": 0.049567392401448924,
+      "dti_valid_n": 177,
+      "dti_ge_warn_count": 70,
+      "dti_ge_warn_percent": 39.548022598870055,
+      "dti_ge_high_count": 30,
+      "dti_ge_high_percent": 16.94915254237288
+    }
+  },
+  "bnpl": {
+    "rows": 10345,
+    "default_count": 4040,
+    "default_rate": 39.05268245529241,
+    "employment_labels": [
+      "Student",
+      "Salaried",
+      "Self-Employed",
+      "Unemployed"
+    ],
+    "employment_counts": [
+      2531,
+      2632,
+      2550,
+      2632
+    ],
+    "employment_default_rates": [
+      48.557882259976296,
+      32.71276595744681,
+      26.235294117647058,
+      48.67021276595745
+    ],
+    "overall_dti": {
+      "default_median": 0.18962933063151435,
+      "default_q75": 0.29228537277020383,
+      "non_default_median": 0.1092458789425864,
+      "non_default_q75": 0.2460341751310624,
+      "p_value": 2.6957549463334136e-105
+    },
+    "overall_installments": {
+      "default_median": 9.0,
+      "non_default_median": 6.0,
+      "p_value": 0.21340167889482797
+    },
+    "student_rows": 2531,
+    "student_default_rate": 48.557882259976296,
+    "student_dti": {
+      "default_median": 0.2486873122605792,
+      "non_default_median": 0.25189051174772153,
+      "p_value": 0.9270647933011587
+    }
+  },
+  "demo_cases": [
+    {
+      "sample_id": "S-01",
+      "expected_level": "低风险",
+      "dti": 0.06833333,
+      "score": 0,
+      "level": "低风险",
+      "dimensions": [
+        {
+          "id": "debt_to_income",
+          "label": "月供负债收入比",
+          "score": 0.0
+        },
+        {
+          "id": "debt_stack",
+          "label": "多头分期笔数",
+          "score": 0.0
+        },
+        {
+          "id": "real_cost",
+          "label": "IRR真实年化成本",
+          "score": 0.0
+        },
+        {
+          "id": "behavior_resilience",
+          "label": "行为与韧性",
+          "score": 0.0
+        }
+      ]
+    },
+    {
+      "sample_id": "S-02",
+      "expected_level": "关注",
+      "dti": 0.31481481,
+      "score": 26,
+      "level": "关注",
+      "dimensions": [
+        {
+          "id": "debt_to_income",
+          "label": "月供负债收入比",
+          "score": 12.0
+        },
+        {
+          "id": "debt_stack",
+          "label": "多头分期笔数",
+          "score": 0.0
+        },
+        {
+          "id": "real_cost",
+          "label": "IRR真实年化成本",
+          "score": 12.0
+        },
+        {
+          "id": "behavior_resilience",
+          "label": "行为与韧性",
+          "score": 2.0
+        }
+      ]
+    },
+    {
+      "sample_id": "S-03",
+      "expected_level": "中风险",
+      "dti": 0.4,
+      "score": 50,
+      "level": "中风险",
+      "dimensions": [
+        {
+          "id": "debt_to_income",
+          "label": "月供负债收入比",
+          "score": 24.0
+        },
+        {
+          "id": "debt_stack",
+          "label": "多头分期笔数",
+          "score": 6.0
+        },
+        {
+          "id": "real_cost",
+          "label": "IRR真实年化成本",
+          "score": 20.0
+        },
+        {
+          "id": "behavior_resilience",
+          "label": "行为与韧性",
+          "score": 0.0
+        }
+      ]
+    },
+    {
+      "sample_id": "S-04",
+      "expected_level": "高风险",
+      "dti": 0.60714286,
+      "score": 86,
+      "level": "高风险",
+      "dimensions": [
+        {
+          "id": "debt_to_income",
+          "label": "月供负债收入比",
+          "score": 35.0
+        },
+        {
+          "id": "debt_stack",
+          "label": "多头分期笔数",
+          "score": 15.0
+        },
+        {
+          "id": "real_cost",
+          "label": "IRR真实年化成本",
+          "score": 20.0
+        },
+        {
+          "id": "behavior_resilience",
+          "label": "行为与韧性",
+          "score": 16.0
+        }
+      ]
+    },
+    {
+      "sample_id": "S-05",
+      "expected_level": "低风险",
+      "dti": 0.09615385,
+      "score": 6,
+      "level": "低风险",
+      "dimensions": [
+        {
+          "id": "debt_to_income",
+          "label": "月供负债收入比",
+          "score": 0.0
+        },
+        {
+          "id": "debt_stack",
+          "label": "多头分期笔数",
+          "score": 0.0
+        },
+        {
+          "id": "real_cost",
+          "label": "IRR真实年化成本",
+          "score": 6.0
+        },
+        {
+          "id": "behavior_resilience",
+          "label": "行为与韧性",
+          "score": 0.0
+        }
+      ]
+    }
+  ],
+  "scorecard_version": "scorecard-2026.11-m2",
+  "scorecard_max_scores": {
+    "debt_to_income": 35,
+    "debt_stack": 15,
+    "real_cost": 20,
+    "behavior_resilience": 30
+  },
+  "figures": {
+    "bnpl_employment": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig1_bnpl_employment.png",
+    "bnpl_dti": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig2_bnpl_dti.png",
+    "education": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig3_education.png",
+    "debt_count": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig4_debt_count.png",
+    "pressure": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig5_questionnaire_pressure.png",
+    "demo_risk": "E:\\codex\\Home\\visualizations\\2026\\11\\03\\01a19ffa-2af3-7d53-805b-6f1e2acfe0c5\\.work\\repo_audit\\StudentRiskGuard\\docs\\assets\\m2\\fig6_demo_risk.png"
+  }
+}

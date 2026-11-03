@@ -152,8 +152,8 @@
                 "enum": [
                   "debt_to_income",
                   "debt_stack",
-                  "income_volatility",
-                  "real_cost"
+                  "real_cost",
+                  "behavior_resilience"
                 ]
               },
               "raw_value": {

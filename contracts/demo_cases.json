@@ -166,5 +166,50 @@
       ],
       "forecast_months": 12
     }
+  },
+  {
+    "sample_id": "S-05",
+    "label": "低风险",
+    "description": "含存款缓冲、连续包月订阅且订阅不属于负债的合成样本",
+    "expected_level": "低风险",
+    "expected_metrics": {
+      "debt_to_income_ratio": 0.0769,
+      "debt_count": 1,
+      "savings_balance": 6000,
+      "monthly_subscription_total": 50
+    },
+    "request": {
+      "session_id": "demo-s05",
+      "income": {
+        "monthly_disposable_allowance": 2000,
+        "monthly_part_time_income": 600
+      },
+      "debts": [
+        {
+          "id": "d1",
+          "label": "课程分期",
+          "remaining_principal": 2200,
+          "monthly_payment": 200,
+          "remaining_periods": 12,
+          "nominal_apr": 0.12
+        }
+      ],
+      "savings_balance": 6000,
+      "recurring_subscriptions": [
+        {
+          "label": "B站连续包月会员",
+          "monthly_cost": 25
+        },
+        {
+          "label": "音乐会员",
+          "monthly_cost": 15
+        },
+        {
+          "label": "云存储订阅",
+          "monthly_cost": 10
+        }
+      ],
+      "forecast_months": 12
+    }
   }
 ]

@@ -50,6 +50,11 @@ class Debt(ContractModel):
     nominal_apr: float = Field(ge=0, le=1)
 
 
+class RecurringSubscription(ContractModel):
+    label: str = Field(min_length=1, description="订阅名称")
+    monthly_cost: float = Field(gt=0, description="每月扣费金额，单位元")
+
+
 class AssessmentRequest(ContractModel):
     session_id: str = Field(
         min_length=1,
@@ -58,6 +63,8 @@ class AssessmentRequest(ContractModel):
     )
     income: Income
     debts: list[Debt] = Field(default_factory=list, max_length=20)
+    savings_balance: float = Field(default=0.0, ge=0)
+    recurring_subscriptions: list[RecurringSubscription] = Field(default_factory=list)
     forecast_months: int = Field(default=12, ge=1, le=36)
 
     @model_validator(mode="after")

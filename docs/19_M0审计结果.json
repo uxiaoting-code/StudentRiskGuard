@@ -45,6 +45,7 @@
     }
   ],
   "pending": [
-    "S-M0 human confirmation of units, draft scorecard, demo levels and IRR/cashflow assumptions"
+    "S-M0 human confirmation of units, draft scorecard, demo levels and IRR/cashflow assumptions",
+    "M0-CHANGE-001: confirm business semantics and defaults for savings_balance and recurring_subscriptions[] with the statistics owner"
   ]
 }

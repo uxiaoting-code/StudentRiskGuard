@@ -22,6 +22,7 @@ from riskguard.models import (
     Explanation,
     Income,
     IrrResult,
+    RecurringSubscription,
     RiskAssessment,
     RiskDimension,
     RiskSource,
@@ -67,6 +68,17 @@ def test_valid_demo_request_parses() -> None:
     assert request.session_id == "demo-s03"
     assert len(request.debts) == 3
     assert request.forecast_months == 12
+    assert request.savings_balance == 0
+    assert request.recurring_subscriptions == []
+
+
+def test_s05_subscription_contract_shape() -> None:
+    request = AssessmentRequest.model_validate(demo_request("S-05"))
+
+    assert request.savings_balance == 6000
+    assert len(request.recurring_subscriptions) == 3
+    assert request.recurring_subscriptions[0].label == "B站连续包月会员"
+    assert request.recurring_subscriptions[0].monthly_cost == 25
 
 
 def test_zero_total_income_is_rejected() -> None:
@@ -155,6 +167,9 @@ def test_contract_field_sets_match_schemas() -> None:
     assert set(AssessmentRequest.model_fields) == set(request_schema["properties"])
     assert set(Income.model_fields) == set(request_schema["$defs"]["income"]["properties"])
     assert set(Debt.model_fields) == set(request_schema["$defs"]["debt"]["properties"])
+    assert set(RecurringSubscription.model_fields) == set(
+        request_schema["$defs"]["recurring_subscription"]["properties"]
+    )
     assert set(AssessmentResult.model_fields) == set(result_schema["properties"])
     assert set(AssessmentMetrics.model_fields) == set(
         result_schema["properties"]["metrics"]["properties"]

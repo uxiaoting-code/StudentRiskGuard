@@ -18,6 +18,7 @@ from riskguard.models.assessment import (
     Income,
     IrrResult,
     RiskAssessment,
+    RecurringSubscription,
     RiskDimension,
 )
 
@@ -35,6 +36,7 @@ __all__ = [
     "Income",
     "IrrResult",
     "RiskAssessment",
+    "RecurringSubscription",
     "RiskDimension",
     "RiskSource",
     "ToolActivity",

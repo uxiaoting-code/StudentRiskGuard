@@ -32,6 +32,20 @@
       "minimum": 1,
       "maximum": 36,
       "default": 12
+    },
+    "savings_balance": {
+      "type": "number",
+      "minimum": 0,
+      "default": 0.0,
+      "description": "用户当前手头存款总余额，单位元，用于现金流缓冲推演。"
+    },
+    "recurring_subscriptions": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/recurring_subscription"
+      },
+      "default": [],
+      "description": "无借贷、无本金的持续性自动续费开销，不属于 debts 负债数组。"
     }
   },
   "$defs": {
@@ -112,6 +126,26 @@
           "type": "number",
           "minimum": 0,
           "maximum": 1
+        }
+      }
+    },
+    "recurring_subscription": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "label",
+        "monthly_cost"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "description": "订阅名称，例如 B站连续包月会员。"
+        },
+        "monthly_cost": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "description": "每月扣费金额，单位元。"
         }
       }
     }

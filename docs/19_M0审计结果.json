@@ -1,0 +1,50 @@
+{
+  "module_id": "M0",
+  "date": "2026-11-03",
+  "status": "technical_pass_pending_partner_signoff",
+  "issues": [],
+  "checks": {
+    "json_schemas_parse": true,
+    "forbidden_fields_absent": true,
+    "agent_tools_only_ids": true,
+    "scorecard_weight_sum": 1.0,
+    "scorecard_max_score_sum": 100,
+    "risk_levels_cover_0_to_100": true,
+    "questionnaire_mapping_fields_covered": true,
+    "demo_case_cashflows_valid": true,
+    "demo_case_levels_present": true
+  },
+  "demo_cases": [
+    {
+      "sample_id": "S-01",
+      "dti": 0.0683,
+      "debt_count": 1,
+      "score": 8,
+      "level": "低风险"
+    },
+    {
+      "sample_id": "S-02",
+      "dti": 0.3148,
+      "debt_count": 2,
+      "score": 44,
+      "level": "关注"
+    },
+    {
+      "sample_id": "S-03",
+      "dti": 0.4,
+      "debt_count": 3,
+      "score": 59,
+      "level": "中风险"
+    },
+    {
+      "sample_id": "S-04",
+      "dti": 0.6071,
+      "debt_count": 5,
+      "score": 85,
+      "level": "高风险"
+    }
+  ],
+  "pending": [
+    "S-M0 human confirmation of units, draft scorecard, demo levels and IRR/cashflow assumptions"
+  ]
+}

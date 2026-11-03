@@ -1,0 +1,49 @@
+{
+  "version": "agent-tools-1.0",
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "run_risk_assessment",
+        "description": "对匿名会话执行确定性负债压力评估。模型不得自行计算任何数值。",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_id"
+          ],
+          "properties": {
+            "session_id": {
+              "type": "string",
+              "description": "匿名会话 ID"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "simulate_new_installment",
+        "description": "对当前会话执行新增分期情景模拟。",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "session_id",
+            "scenario_id"
+          ],
+          "properties": {
+            "session_id": {
+              "type": "string"
+            },
+            "scenario_id": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "explanation_boundary_notice": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。"
+}

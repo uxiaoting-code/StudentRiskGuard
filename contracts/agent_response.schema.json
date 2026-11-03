@@ -1,0 +1,176 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studentriskguard.local/schemas/agent_response.schema.json",
+  "title": "AgentResponse",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "status",
+    "degraded",
+    "tool_activity",
+    "assessment",
+    "explanation",
+    "error"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string"
+    },
+    "status": {
+      "enum": [
+        "completed",
+        "degraded",
+        "needs_more_info",
+        "error"
+      ]
+    },
+    "degraded": {
+      "type": "boolean"
+    },
+    "tool_activity": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "tool",
+          "status",
+          "latency_ms"
+        ],
+        "properties": {
+          "tool": {
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "succeeded",
+              "failed",
+              "skipped"
+            ]
+          },
+          "latency_ms": {
+            "type": "number",
+            "minimum": 0
+          },
+          "error_code": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      }
+    },
+    "assessment": {
+      "oneOf": [
+        {
+          "$ref": "assessment_result.schema.json"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "explanation": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "summary",
+            "risk_sources",
+            "actions",
+            "education",
+            "questions_to_consider",
+            "boundary_notice"
+          ],
+          "properties": {
+            "summary": {
+              "type": "string",
+              "maxLength": 240
+            },
+            "risk_sources": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "dimension_id",
+                  "title",
+                  "detail"
+                ],
+                "properties": {
+                  "dimension_id": {
+                    "type": "string"
+                  },
+                  "title": {
+                    "type": "string"
+                  },
+                  "detail": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "actions": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 5,
+              "items": {
+                "type": "string"
+              }
+            },
+            "education": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string"
+              }
+            },
+            "questions_to_consider": {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 4,
+              "items": {
+                "type": "string"
+              }
+            },
+            "boundary_notice": {
+              "const": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "error": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code",
+            "message"
+          ],
+          "properties": {
+            "code": {
+              "type": "string"
+            },
+            "message": {
+              "type": "string"
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

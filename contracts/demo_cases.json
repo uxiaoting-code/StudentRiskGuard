@@ -1,0 +1,170 @@
+[
+  {
+    "sample_id": "S-01",
+    "label": "低风险",
+    "description": "单笔小额分期，收入稳定",
+    "expected_level": "低风险",
+    "expected_metrics": {
+      "debt_to_income_ratio": 0.0683,
+      "debt_count": 1
+    },
+    "request": {
+      "session_id": "demo-s01",
+      "income": {
+        "monthly_disposable_allowance": 2500,
+        "monthly_part_time_income": 500
+      },
+      "debts": [
+        {
+          "id": "d1",
+          "label": "购物分期",
+          "remaining_principal": 1200,
+          "monthly_payment": 205,
+          "remaining_periods": 6,
+          "nominal_apr": 0.05
+        }
+      ],
+      "forecast_months": 12
+    }
+  },
+  {
+    "sample_id": "S-02",
+    "label": "关注",
+    "description": "两笔分期，兼职收入占比约四分之一",
+    "expected_level": "关注",
+    "expected_metrics": {
+      "debt_to_income_ratio": 0.3148,
+      "debt_count": 2
+    },
+    "request": {
+      "session_id": "demo-s02",
+      "income": {
+        "monthly_disposable_allowance": 2000,
+        "monthly_part_time_income": 700
+      },
+      "debts": [
+        {
+          "id": "d1",
+          "label": "数码分期",
+          "remaining_principal": 4000,
+          "monthly_payment": 450,
+          "remaining_periods": 10,
+          "nominal_apr": 0.12
+        },
+        {
+          "id": "d2",
+          "label": "课程分期",
+          "remaining_principal": 3000,
+          "monthly_payment": 400,
+          "remaining_periods": 8,
+          "nominal_apr": 0.18
+        }
+      ],
+      "forecast_months": 12
+    }
+  },
+  {
+    "sample_id": "S-03",
+    "label": "中风险",
+    "description": "三笔分期叠加，月供收入比约四成",
+    "expected_level": "中风险",
+    "expected_metrics": {
+      "debt_to_income_ratio": 0.4,
+      "debt_count": 3
+    },
+    "request": {
+      "session_id": "demo-s03",
+      "income": {
+        "monthly_disposable_allowance": 2200,
+        "monthly_part_time_income": 800
+      },
+      "debts": [
+        {
+          "id": "d1",
+          "label": "购物分期",
+          "remaining_principal": 4800,
+          "monthly_payment": 520,
+          "remaining_periods": 10,
+          "nominal_apr": 0.12
+        },
+        {
+          "id": "d2",
+          "label": "数码分期",
+          "remaining_principal": 2600,
+          "monthly_payment": 380,
+          "remaining_periods": 8,
+          "nominal_apr": 0.18
+        },
+        {
+          "id": "d3",
+          "label": "课程分期",
+          "remaining_principal": 1900,
+          "monthly_payment": 300,
+          "remaining_periods": 7,
+          "nominal_apr": 0.24
+        }
+      ],
+      "forecast_months": 12
+    }
+  },
+  {
+    "sample_id": "S-04",
+    "label": "高风险",
+    "description": "五笔分期叠加，兼职收入依赖高",
+    "expected_level": "高风险",
+    "expected_metrics": {
+      "debt_to_income_ratio": 0.6071,
+      "debt_count": 5
+    },
+    "request": {
+      "session_id": "demo-s04",
+      "income": {
+        "monthly_disposable_allowance": 1700,
+        "monthly_part_time_income": 1100
+      },
+      "debts": [
+        {
+          "id": "d1",
+          "label": "购物分期",
+          "remaining_principal": 2800,
+          "monthly_payment": 500,
+          "remaining_periods": 6,
+          "nominal_apr": 0.12
+        },
+        {
+          "id": "d2",
+          "label": "数码分期",
+          "remaining_principal": 2600,
+          "monthly_payment": 400,
+          "remaining_periods": 7,
+          "nominal_apr": 0.18
+        },
+        {
+          "id": "d3",
+          "label": "课程分期",
+          "remaining_principal": 2200,
+          "monthly_payment": 320,
+          "remaining_periods": 8,
+          "nominal_apr": 0.24
+        },
+        {
+          "id": "d4",
+          "label": "会员分期",
+          "remaining_principal": 1500,
+          "monthly_payment": 260,
+          "remaining_periods": 6,
+          "nominal_apr": 0.24
+        },
+        {
+          "id": "d5",
+          "label": "其他分期",
+          "remaining_principal": 1000,
+          "monthly_payment": 220,
+          "remaining_periods": 5,
+          "nominal_apr": 0.24
+        }
+      ],
+      "forecast_months": 12
+    }
+  }
+]

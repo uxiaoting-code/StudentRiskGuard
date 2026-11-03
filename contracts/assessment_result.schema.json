@@ -1,0 +1,258 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studentriskguard.local/schemas/assessment_result.schema.json",
+  "title": "AssessmentResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "assessment_id",
+    "request_id",
+    "model_version",
+    "parameter_version",
+    "metrics",
+    "irr_results",
+    "risk",
+    "cashflow_series",
+    "warnings",
+    "assumptions"
+  ],
+  "properties": {
+    "assessment_id": {
+      "type": "string"
+    },
+    "request_id": {
+      "type": "string"
+    },
+    "model_version": {
+      "type": "string"
+    },
+    "parameter_version": {
+      "type": "string"
+    },
+    "metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "income_total",
+        "monthly_payment_total",
+        "debt_to_income_ratio",
+        "remaining_debt_total",
+        "debt_count",
+        "monthly_surplus",
+        "surplus_ratio"
+      ],
+      "properties": {
+        "income_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "monthly_payment_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "debt_to_income_ratio": {
+          "type": "number",
+          "minimum": 0
+        },
+        "remaining_debt_total": {
+          "type": "number",
+          "minimum": 0
+        },
+        "debt_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "monthly_surplus": {
+          "type": "number"
+        },
+        "surplus_ratio": {
+          "type": "number"
+        }
+      }
+    },
+    "irr_results": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "debt_id",
+          "status",
+          "assumption"
+        ],
+        "properties": {
+          "debt_id": {
+            "type": "string"
+          },
+          "monthly_irr": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "annualized_irr": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "unavailable"
+            ]
+          },
+          "assumption": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "risk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "score",
+        "level",
+        "dimensions",
+        "top_contributors"
+      ],
+      "properties": {
+        "score": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "level": {
+          "enum": [
+            "低风险",
+            "关注",
+            "中风险",
+            "高风险"
+          ]
+        },
+        "dimensions": {
+          "type": "array",
+          "minItems": 4,
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "raw_value",
+              "score",
+              "max_score",
+              "weight",
+              "contribution"
+            ],
+            "properties": {
+              "id": {
+                "enum": [
+                  "debt_to_income",
+                  "debt_stack",
+                  "income_volatility",
+                  "real_cost"
+                ]
+              },
+              "raw_value": {
+                "type": "number"
+              },
+              "score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "max_score": {
+                "type": "number",
+                "minimum": 0
+              },
+              "weight": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "contribution": {
+                "type": "number",
+                "minimum": 0
+              }
+            }
+          }
+        },
+        "top_contributors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 3,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "cashflow_series": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 36,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "month_index",
+          "income",
+          "debt_payment",
+          "surplus",
+          "cumulative_surplus"
+        ],
+        "properties": {
+          "month_index": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "income": {
+            "type": "number",
+            "minimum": 0
+          },
+          "debt_payment": {
+            "type": "number",
+            "minimum": 0
+          },
+          "surplus": {
+            "type": "number"
+          },
+          "cumulative_surplus": {
+            "type": "number"
+          }
+        }
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "assumptions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "currency",
+        "income_constant",
+        "forecast_months"
+      ],
+      "properties": {
+        "currency": {
+          "const": "CNY"
+        },
+        "income_constant": {
+          "type": "boolean"
+        },
+        "forecast_months": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 36
+        }
+      }
+    }
+  }
+}

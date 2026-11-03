@@ -1,0 +1,31 @@
+task_id,phase,priority,owner,start_day,end_day,depends_on,write_scope,deliverable,acceptance,status
+T01,契约冻结,P0,共同,1,1,,contracts/; docs/,输入输出 Schema、评分初版配置、四类样本,字段无歧义；样本期望等级明确；双方确认,todo
+T02,工程骨架,P0,计算机,1,1,T01,app.py; pyproject.toml; requirements.txt; src/riskguard/,可启动仓库骨架与 .env.example,streamlit 可启动；/health 返回 200,todo
+T03,Pydantic 模型,P0,计算机,1,2,T01,src/riskguard/models/,AssessmentRequest、AssessmentResult、AgentResponse,合法请求通过；非法请求字段级失败,todo
+T04,基础指标,P0,经济统计,2,2,"T01,T03",src/riskguard/core/metrics.py; tests/test_metrics.py,收入、月供、月供收入比、结余、负债规模,固定样本与手算一致,todo
+T05,IRR,P0,经济统计,2,2,"T01,T03",src/riskguard/core/irr.py; tests/test_irr.py,逐笔月 IRR 与真实年化,典型样本误差不超过 0.01 个百分点；无解返回 unavailable,todo
+T06,压力打分卡,P0,经济统计,2,3,"T04,T05",src/riskguard/core/scorecard.py; tests/test_scorecard.py,0-100 分、风险等级、四维贡献,四类样本等级符合预期；权重配置化,todo
+T07,静态现金流,P0,经济统计,2,3,"T04,T05",src/riskguard/core/cashflow.py; tests/test_cashflow.py,12 个月结余序列和最低月份,序列连续；到期月供停止扣减,todo
+T08,演示样本,P0,经济统计,1,2,T01,contracts/demo_cases.json; src/riskguard/data/demo_cases.py,低/关注/中/高四组合成样本,一键载入即可完成全流程,todo
+T09,合成数据,P1,经济统计,3,3,T08,src/riskguard/data/synthetic.py,可复现合成数据生成器,固定种子结果一致；无真实个人信息,todo
+T10,核心测试,P0,经济统计,2,3,"T04,T05,T06,T07",tests/test_metrics.py; tests/test_irr.py; tests/test_scorecard.py; tests/test_cashflow.py,核心单元测试与边界样本,pytest 通过；覆盖 0 笔分期、0 收入、异常期数,todo
+T11,会话存储,P0,计算机,2,3,T03,src/riskguard/services/session_store.py; tests/test_session_store.py,匿名 session_id、TDD 过期、内存存储,无落盘；过期后不可读取,todo
+T12,评估服务,P0,计算机,3,3,"T04,T06,T07,T11",src/riskguard/services/assessment_service.py,组合核心计算并返回 AssessmentResult,不重复实现公式；响应符合 Schema,todo
+T13,工具执行器,P0,计算机,3,3,"T11,T12",src/riskguard/tools/definitions.py; src/riskguard/tools/executor.py,run_risk_assessment 与 simulate_new_installment 工具,工具参数校验和错误码统一,todo
+T14,API 接口,P0,计算机,3,4,"T03,T11,T12,T13",src/riskguard/api/,创建会话、评估、模拟、健康检查接口,OpenAPI 可访问；接口测试通过,todo
+T15,AgentRunner,P0,计算机,4,4,"T13,T14",src/riskguard/agent/runner.py,真实 DeepSeek 工具调用到解释的编排,轨迹包含 run_risk_assessment tool_call,todo
+T16,Prompt 与解释 Schema,P0,计算机,4,4,"T01,T15",src/riskguard/agent/prompts.py; contracts/agent_response.schema.json,系统 Prompt、工具调用 Prompt、解释 JSON,统计方向复核无借贷引导和越权数值,todo
+T17,降级解释,P0,计算机,4,5,"T12,T15",src/riskguard/agent/fallback.py,模型失败时的模板报告,断网/超时仍有计算结果和解释模板,todo
+T18,输入页面,P0,计算机,4,5,"T03,T08",src/riskguard/ui/streamlit_app.py; src/riskguard/ui/components.py,收入表单、分期增删、样本载入,无需登录；错误定位到字段,todo
+T19,结果页面,P0,计算机,5,5,"T12,T18",src/riskguard/ui/,分数、等级、贡献、IRR、现金流,页面数字与工具结果一致,todo
+T20,Agent 轨迹展示,P1,计算机,5,5,"T15,T19",src/riskguard/ui/components.py,工具名、状态、耗时展示,不展示思维链，仅展示工具执行轨迹,todo
+T21,新增分期模拟,P1,计算机,5,6,"T12,T13,T19",src/riskguard/services/scenario_service.py; src/riskguard/ui/,新增分期前后对比,不覆盖原始评估；前后差值与手算一致,todo
+T22,安全校验,P0,计算机,6,6,"T15,T16",src/riskguard/agent/safety.py; tests/test_safety.py,Schema、禁止意图、边界声明校验,违规输出全部替换为安全模板,todo
+T23,隐私与日志,P0,计算机,6,6,"T11,T14",src/riskguard/services/; src/riskguard/api/,日志脱敏、内存会话清理,日志不含金额/明细；无持久化个人数据,todo
+T24,公开部署,P0,计算机,7,7,"T02,T19",Dockerfile; README.md; HuggingFace 配置,公开可访问链接,另一台设备可完成主流程,todo
+T25,端到端测试,P0,共同,8,8,"T15,T19,T21,T22,T24",tests/; docs/06_Demo与验收清单.md,E2E 测试与验收记录,四类样本全流程通过；降级路径通过,todo
+T26,样本回归,P0,共同,8,8,"T06,T08,T25",tests/; contracts/demo_cases.json,四类样本回归结果,等级、关键指标和解释边界符合预期,todo
+T27,Demo 材料,P1,共同,9,9,"T24,T25",docs/; deliverables/,5 分钟录屏、截图、答辩脚本,脚本可完整播放；有备用录屏,todo
+T28,README 与运行手册,P0,计算机,8,9,T24,README.md; .env.example,启动、部署、环境变量和排障说明,新成员可按文档启动,todo
+T29,冻结提交,P0,共同,10,10,"T25,T26,T27,T28",docs/; deliverables/,最终链接、代码、视频和文档,无密钥、无临时文件、无可复现阻断错误,todo
+T30,自然语言录入,P1,计算机,9,10,"T18,T19",src/riskguard/agent/; src/riskguard/ui/,对话解析成表单草稿并确认,仅作为增强，不影响主表单链路,todo

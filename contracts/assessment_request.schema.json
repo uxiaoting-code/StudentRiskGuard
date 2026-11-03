@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studentriskguard.local/schemas/assessment_request.schema.json",
+  "title": "AssessmentRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "session_id",
+    "income",
+    "debts"
+  ],
+  "properties": {
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 64,
+      "pattern": "^[A-Za-z0-9_-]+$"
+    },
+    "income": {
+      "$ref": "#/$defs/income"
+    },
+    "debts": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 20,
+      "items": {
+        "$ref": "#/$defs/debt"
+      }
+    },
+    "forecast_months": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 36,
+      "default": 12
+    }
+  },
+  "$defs": {
+    "income": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "monthly_disposable_allowance",
+        "monthly_part_time_income"
+      ],
+      "properties": {
+        "monthly_disposable_allowance": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "monthly_part_time_income": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1000000
+        }
+      },
+      "anyOf": [
+        {
+          "properties": {
+            "monthly_disposable_allowance": {
+              "exclusiveMinimum": 0
+            }
+          }
+        },
+        {
+          "properties": {
+            "monthly_part_time_income": {
+              "exclusiveMinimum": 0
+            }
+          }
+        }
+      ]
+    },
+    "debt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "label",
+        "remaining_principal",
+        "monthly_payment",
+        "remaining_periods",
+        "nominal_apr"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 32
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 30
+        },
+        "remaining_principal": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "monthly_payment": {
+          "type": "number",
+          "exclusiveMinimum": 0,
+          "maximum": 100000
+        },
+        "remaining_periods": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 120
+        },
+        "nominal_apr": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      }
+    }
+  }
+}

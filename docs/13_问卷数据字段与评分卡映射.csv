@@ -1,0 +1,13 @@
+model_field,survey_questions,use,calibration_action,notes
+monthly_disposable_allowance,Q27,稳定可支配资金区间,估算DTI和收入分布,不采集精确金额
+monthly_part_time_income,"Q28,Q29",兼职收入和稳定性,收入稳定性维度,0与无兼职保持一致
+debt_count,Q2,分期笔数宽区间,负债叠加维度,1-2/3-4/5+
+monthly_payment_total,Q4,月供合计宽区间,与收入估算DTI,采用区间中位数
+remaining_principal,Q5,剩余本金宽区间,负债规模描述,不进入当前评分
+remaining_periods,Q6,最长剩余期限,期限和现金流解释,宽区间
+debt_to_income_ratio,"Q4,Q7,Q27,Q28",自报比例与区间估算交叉验证,校准DTI阈值,Q7无法估计时用区间中位数
+income_stability,"Q28,Q29",兼职占比与稳定性,收入稳定性维度,不把兼职视为负面标签
+real_cost_awareness,"Q15,Q17,Q18,Q19,Q20,Q21",名词说明前后理解变化,设计IRR科普，不直接用自报数据算IRR,不能从自报利率直接校准IRR
+cashflow_pressure,"Q11,Q12,Q13,Q14",现金流压力和收入冲击,辅助风险等级阈值,保留不愿回答
+feature_priority,"Q22,Q23,Q24,Q25",使用意愿和功能优先序,调整MVP展示和科普内容,不用于授信
+attention_check,Q10,质量控制,剔除未通过答卷,必须选择比较同意

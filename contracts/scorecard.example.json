@@ -1,0 +1,158 @@
+{
+  "version": "scorecard-2026.11-draft",
+  "draft_only": true,
+  "source": "Initial development baseline; economic-statistics owner must calibrate with anonymous survey and synthetic data.",
+  "rounding": "round_half_up",
+  "risk_levels": [
+    {
+      "min_score": 0,
+      "max_score": 29,
+      "level": "低风险"
+    },
+    {
+      "min_score": 30,
+      "max_score": 49,
+      "level": "关注"
+    },
+    {
+      "min_score": 50,
+      "max_score": 69,
+      "level": "中风险"
+    },
+    {
+      "min_score": 70,
+      "max_score": 100,
+      "level": "高风险"
+    }
+  ],
+  "dimensions": [
+    {
+      "id": "debt_to_income",
+      "label": "月供收入比",
+      "weight": 0.4,
+      "max_score": 40,
+      "feature": "monthly_payment_total / income_total",
+      "interpolation": "linear",
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.2,
+          0
+        ],
+        [
+          0.3,
+          12
+        ],
+        [
+          0.45,
+          30
+        ],
+        [
+          1.0,
+          40
+        ]
+      ]
+    },
+    {
+      "id": "debt_stack",
+      "label": "负债叠加",
+      "weight": 0.25,
+      "max_score": 25,
+      "feature": "debt_count",
+      "interpolation": "linear",
+      "points": [
+        [
+          0,
+          0
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          3,
+          12
+        ],
+        [
+          4,
+          18
+        ],
+        [
+          5,
+          25
+        ],
+        [
+          20,
+          25
+        ]
+      ]
+    },
+    {
+      "id": "income_volatility",
+      "label": "收入稳定性",
+      "weight": 0.2,
+      "max_score": 20,
+      "feature": "monthly_part_time_income / income_total",
+      "interpolation": "linear",
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.1,
+          0
+        ],
+        [
+          0.3,
+          10
+        ],
+        [
+          0.5,
+          16
+        ],
+        [
+          1.0,
+          20
+        ]
+      ]
+    },
+    {
+      "id": "real_cost",
+      "label": "真实成本",
+      "weight": 0.15,
+      "max_score": 15,
+      "feature": "max(annualized_irr for debts where status == ok), 0 if unavailable",
+      "interpolation": "linear",
+      "points": [
+        [
+          0.0,
+          0
+        ],
+        [
+          0.12,
+          0
+        ],
+        [
+          0.18,
+          8
+        ],
+        [
+          0.24,
+          12
+        ],
+        [
+          0.6,
+          15
+        ],
+        [
+          2.0,
+          15
+        ]
+      ]
+    }
+  ]
+}

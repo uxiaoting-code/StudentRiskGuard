@@ -152,8 +152,8 @@
                 "enum": [
                   "debt_to_income",
                   "debt_stack",
-                  "income_volatility",
-                  "real_cost"
+                  "real_cost",
+                  "behavior_resilience"
                 ]
               },
               "raw_value": {
@@ -165,7 +165,7 @@
               },
               "max_score": {
                 "type": "number",
-                "minimum": 0
+                "exclusiveMinimum": 0
               },
               "weight": {
                 "type": "number",
@@ -185,7 +185,12 @@
           "maxItems": 3,
           "uniqueItems": true,
           "items": {
-            "type": "string"
+            "enum": [
+              "debt_to_income",
+              "debt_stack",
+              "real_cost",
+              "behavior_resilience"
+            ]
           }
         }
       }

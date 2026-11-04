@@ -14,8 +14,8 @@ RiskLevel = Literal["低风险", "关注", "中风险", "高风险"]
 RiskDimensionId = Literal[
     "debt_to_income",
     "debt_stack",
-    "income_volatility",
     "real_cost",
+    "behavior_resilience",
 ]
 IrrStatus = Literal["ok", "unavailable"]
 
@@ -55,6 +55,16 @@ class RecurringSubscription(ContractModel):
     monthly_cost: float = Field(gt=0, description="每月扣费金额，单位元")
 
 
+class BehaviorProfile(ContractModel):
+    """Self-reported behavior signals used only by the behavior dimension."""
+
+    borrow_to_repay: bool = False
+    strict_overdue_count: int = Field(default=0, ge=0, le=100)
+    insufficient_months_last_3: int = Field(default=0, ge=0, le=3)
+    income_drop_30_cannot_cover: bool = False
+    financial_cognition_score: float | None = Field(default=None, ge=1, le=5)
+
+
 class AssessmentRequest(ContractModel):
     session_id: str = Field(
         min_length=1,
@@ -62,9 +72,10 @@ class AssessmentRequest(ContractModel):
         pattern=r"^[A-Za-z0-9_-]+$",
     )
     income: Income
-    debts: list[Debt] = Field(default_factory=list, max_length=20)
+    debts: list[Debt] = Field(max_length=20)
     savings_balance: float = Field(default=0.0, ge=0)
     recurring_subscriptions: list[RecurringSubscription] = Field(default_factory=list)
+    behavior: BehaviorProfile = Field(default_factory=BehaviorProfile)
     forecast_months: int = Field(default=12, ge=1, le=36)
 
     @model_validator(mode="after")

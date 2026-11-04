@@ -1,14 +1,14 @@
 task_id,phase,priority,owner,start_day,end_day,depends_on,write_scope,deliverable,acceptance,status
-T01,契约冻结,P0,共同,1,1,,contracts/; docs/,输入输出 Schema、评分初版配置、四类样本,字段无歧义；样本期望等级明确；双方确认,todo
-T02,工程骨架,P0,计算机,1,1,T01,app.py; pyproject.toml; requirements.txt; src/riskguard/,可启动仓库骨架与 .env.example,streamlit 可启动；/health 返回 200,todo
-T03,Pydantic 模型,P0,计算机,1,2,T01,src/riskguard/models/,AssessmentRequest、AssessmentResult、AgentResponse,合法请求通过；非法请求字段级失败,todo
-T04,基础指标,P0,经济统计,2,2,"T01,T03",src/riskguard/core/metrics.py; tests/test_metrics.py,收入、月供、月供收入比、结余、负债规模,固定样本与手算一致,todo
-T05,IRR,P0,经济统计,2,2,"T01,T03",src/riskguard/core/irr.py; tests/test_irr.py,逐笔月 IRR 与真实年化,典型样本误差不超过 0.01 个百分点；无解返回 unavailable,todo
-T06,压力打分卡,P0,经济统计,2,3,"T04,T05",src/riskguard/core/scorecard.py; tests/test_scorecard.py,0-100 分、风险等级、四维贡献,四类样本等级符合预期；权重配置化,todo
-T07,静态现金流,P0,经济统计,2,3,"T04,T05",src/riskguard/core/cashflow.py; tests/test_cashflow.py,12 个月结余序列和最低月份,序列连续；到期月供停止扣减,todo
-T08,演示样本,P0,经济统计,1,2,T01,contracts/demo_cases.json; src/riskguard/data/demo_cases.py,低/关注/中/高四组合成样本,一键载入即可完成全流程,todo
-T09,合成数据,P1,经济统计,3,3,T08,src/riskguard/data/synthetic.py,可复现合成数据生成器,固定种子结果一致；无真实个人信息,todo
-T10,核心测试,P0,经济统计,2,3,"T04,T05,T06,T07",tests/test_metrics.py; tests/test_irr.py; tests/test_scorecard.py; tests/test_cashflow.py,核心单元测试与边界样本,pytest 通过；覆盖 0 笔分期、0 收入、异常期数,todo
+T01,契约冻结,P0,共同,1,1,,contracts/; docs/,输入输出 Schema、评分冻结配置、五套样本,字段无歧义；样本期望等级明确；双方确认,done
+T02,工程骨架,P0,计算机,1,1,T01,app.py; pyproject.toml; requirements.txt; src/riskguard/,可启动仓库骨架与 .env.example,streamlit 可启动；/health 返回 200,done
+T03,Pydantic 模型,P0,计算机,1,2,T01,src/riskguard/models/,AssessmentRequest、AssessmentResult、AgentResponse,合法请求通过；非法请求字段级失败,done
+T04,基础指标,P0,经济统计,2,2,"T01,T03",src/riskguard/core/metrics.py; tests/test_metrics.py,收入、月供、月供收入比、结余、负债规模,固定样本与手算一致,done
+T05,IRR,P0,经济统计,2,2,"T01,T03",src/riskguard/core/irr.py; tests/test_irr.py,逐笔月 IRR 与真实年化,典型样本误差不超过 0.01 个百分点；无解返回 unavailable,done
+T06,压力打分卡,P0,经济统计,2,3,"T04,T05",src/riskguard/core/scorecard.py; tests/test_scorecard.py,0-100 分、风险等级、四维贡献,五套样本等级符合预期；阈值配置化,done
+T07,静态现金流,P0,经济统计,2,3,"T04,T05",src/riskguard/core/cashflow.py; tests/test_cashflow.py,12 个月结余序列和最低月份,序列连续；到期月供停止扣减,done
+T08,演示样本,P0,经济统计,1,2,T01,contracts/demo_cases.json; src/riskguard/data/synthetic.py,五套冻结演示样本,一键载入即可完成全流程,done
+T09,合成数据,P1,经济统计,3,3,T08,src/riskguard/data/synthetic.py,固定演示样本加载器,结果可复现；无真实个人信息,done
+T10,核心测试,P0,经济统计,2,3,"T04,T05,T06,T07",tests/test_metrics.py; tests/test_irr.py; tests/test_scorecard.py; tests/test_cashflow.py; tests/test_core_contract_smoke.py; tests/test_m2_final_contract.py,核心单元测试与最终契约对齐测试,30项pytest通过；覆盖0笔分期、0收入、异常期数,done
 T11,会话存储,P0,计算机,2,3,T03,src/riskguard/services/session_store.py; tests/test_session_store.py,匿名 session_id、TDD 过期、内存存储,无落盘；过期后不可读取,todo
 T12,评估服务,P0,计算机,3,3,"T04,T06,T07,T11",src/riskguard/services/assessment_service.py,组合核心计算并返回 AssessmentResult,不重复实现公式；响应符合 Schema,todo
 T13,工具执行器,P0,计算机,3,3,"T11,T12",src/riskguard/tools/definitions.py; src/riskguard/tools/executor.py,run_risk_assessment 与 simulate_new_installment 工具,工具参数校验和错误码统一,todo

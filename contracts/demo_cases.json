@@ -24,6 +24,13 @@
           "nominal_apr": 0.05
         }
       ],
+      "behavior": {
+        "borrow_to_repay": false,
+        "strict_overdue_count": 0,
+        "insufficient_months_last_3": 0,
+        "income_drop_30_cannot_cover": false,
+        "financial_cognition_score": 4
+      },
       "forecast_months": 12
     }
   },
@@ -60,6 +67,13 @@
           "nominal_apr": 0.18
         }
       ],
+      "behavior": {
+        "borrow_to_repay": false,
+        "strict_overdue_count": 0,
+        "insufficient_months_last_3": 1,
+        "income_drop_30_cannot_cover": false,
+        "financial_cognition_score": 4
+      },
       "forecast_months": 12
     }
   },
@@ -104,6 +118,13 @@
           "nominal_apr": 0.24
         }
       ],
+      "behavior": {
+        "borrow_to_repay": false,
+        "strict_overdue_count": 0,
+        "insufficient_months_last_3": 0,
+        "income_drop_30_cannot_cover": false,
+        "financial_cognition_score": 4
+      },
       "forecast_months": 12
     }
   },
@@ -164,6 +185,13 @@
           "nominal_apr": 0.24
         }
       ],
+      "behavior": {
+        "borrow_to_repay": false,
+        "strict_overdue_count": 2,
+        "insufficient_months_last_3": 3,
+        "income_drop_30_cannot_cover": true,
+        "financial_cognition_score": 4
+      },
       "forecast_months": 12
     }
   },
@@ -173,7 +201,7 @@
     "description": "含存款缓冲、连续包月订阅且订阅不属于负债的合成样本",
     "expected_level": "低风险",
     "expected_metrics": {
-      "debt_to_income_ratio": 0.0769,
+      "debt_to_income_ratio": 0.0962,
       "debt_count": 1,
       "savings_balance": 6000,
       "monthly_subscription_total": 50
@@ -209,6 +237,13 @@
           "monthly_cost": 10
         }
       ],
+      "behavior": {
+        "borrow_to_repay": false,
+        "strict_overdue_count": 0,
+        "insufficient_months_last_3": 0,
+        "income_drop_30_cannot_cover": false,
+        "financial_cognition_score": 4
+      },
       "forecast_months": 12
     }
   }

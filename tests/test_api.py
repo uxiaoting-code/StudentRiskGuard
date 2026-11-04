@@ -17,6 +17,7 @@ from riskguard.models import (
     AssessmentRequest,
     AssessmentResult,
     AssessmentAssumptions,
+    BehaviorProfile,
     CashflowPoint,
     Debt,
     Explanation,
@@ -119,7 +120,7 @@ def test_assessment_result_example_parses() -> None:
 
     assert result.metrics.income_total == 3000
     assert result.metrics.debt_to_income_ratio == 0.4
-    assert result.risk.score == 59
+    assert result.risk.score == 50
     assert result.risk.level == "中风险"
     assert len(result.cashflow_series) == 12
 
@@ -169,6 +170,9 @@ def test_contract_field_sets_match_schemas() -> None:
     assert set(Debt.model_fields) == set(request_schema["$defs"]["debt"]["properties"])
     assert set(RecurringSubscription.model_fields) == set(
         request_schema["$defs"]["recurring_subscription"]["properties"]
+    )
+    assert set(BehaviorProfile.model_fields) == set(
+        request_schema["$defs"]["behavior"]["properties"]
     )
     assert set(AssessmentResult.model_fields) == set(result_schema["properties"])
     assert set(AssessmentMetrics.model_fields) == set(

@@ -8,6 +8,14 @@ from riskguard.models.agent import (
     RiskSource,
     ToolActivity,
 )
+from riskguard.models.api import (
+    ApiErrorDetail,
+    ApiErrorResponse,
+    HealthResponse,
+    RunAssessmentRequest,
+    SessionCreateResponse,
+    SessionMetadata,
+)
 from riskguard.models.assessment import (
     AssessmentAssumptions,
     AssessmentMetrics,
@@ -18,8 +26,8 @@ from riskguard.models.assessment import (
     Debt,
     Income,
     IrrResult,
-    RiskAssessment,
     RecurringSubscription,
+    RiskAssessment,
     RiskDimension,
 )
 
@@ -27,6 +35,8 @@ __all__ = [
     "FIXED_BOUNDARY_NOTICE",
     "AgentError",
     "AgentResponse",
+    "ApiErrorDetail",
+    "ApiErrorResponse",
     "AssessmentAssumptions",
     "AssessmentMetrics",
     "AssessmentRequest",
@@ -35,11 +45,15 @@ __all__ = [
     "CashflowPoint",
     "Debt",
     "Explanation",
+    "HealthResponse",
     "Income",
     "IrrResult",
-    "RiskAssessment",
     "RecurringSubscription",
+    "RiskAssessment",
     "RiskDimension",
     "RiskSource",
+    "RunAssessmentRequest",
+    "SessionCreateResponse",
+    "SessionMetadata",
     "ToolActivity",
 ]

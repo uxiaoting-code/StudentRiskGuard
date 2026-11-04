@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import json
-import re
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -9,7 +9,8 @@ from fastapi.testclient import TestClient
 from pydantic import ValidationError
 
 from riskguard import __version__
-from riskguard.api.main import app
+from riskguard.api.main import app, create_app
+from riskguard.services import SessionStore
 from riskguard.models import (
     FIXED_BOUNDARY_NOTICE,
     AgentResponse,
@@ -200,3 +201,131 @@ def test_contract_field_sets_match_schemas() -> None:
     assert set(ToolActivity.model_fields) == set(
         agent_schema["properties"]["tool_activity"]["items"]["properties"]
     )
+
+
+class ApiClock:
+    def __init__(self) -> None:
+        self.current = datetime(2026, 11, 4, tzinfo=timezone.utc)
+
+    def __call__(self) -> datetime:
+        return self.current
+
+    def advance(self, seconds: int) -> None:
+        self.current += timedelta(seconds=seconds)
+
+
+def new_api_client() -> tuple[TestClient, ApiClock]:
+    clock = ApiClock()
+    store = SessionStore(ttl_seconds=1800, clock=clock)
+    return TestClient(create_app(session_store=store)), clock
+
+
+def test_create_session_and_get_metadata() -> None:
+    api, _ = new_api_client()
+    payload = demo_request("S-03")
+
+    created = api.post("/api/v1/sessions", json=payload)
+
+    assert created.status_code == 201
+    assert created.json()["session_id"] == "demo-s03"
+    assert created.json()["expires_in_seconds"] == 1800
+
+    metadata = api.get("/api/v1/sessions/demo-s03")
+
+    assert metadata.status_code == 200
+    body = metadata.json()
+    assert body["session_id"] == "demo-s03"
+    assert body["debt_count"] == 3
+    assert body["subscription_count"] == 0
+    assert "income" not in body
+    assert "debts" not in body
+
+
+def test_duplicate_session_returns_conflict() -> None:
+    api, _ = new_api_client()
+    payload = demo_request("S-03")
+    assert api.post("/api/v1/sessions", json=payload).status_code == 201
+
+    duplicate = api.post("/api/v1/sessions", json=payload)
+
+    assert duplicate.status_code == 409
+    assert duplicate.json()["error"]["code"] == "SESSION_EXISTS"
+
+
+def test_assessment_endpoint_returns_complete_result() -> None:
+    api, _ = new_api_client()
+    payload = demo_request("S-03")
+    api.post("/api/v1/sessions", json=payload)
+
+    response = api.post(
+        "/api/v1/assessments",
+        json={"session_id": "demo-s03"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["risk"]["level"] == "中风险"
+    assert body["risk"]["score"] == 50
+    assert body["model_version"] == "calc-2026.11-m2-final"
+    assert len(body["cashflow_series"]) == 12
+
+
+def test_tool_endpoint_returns_complete_result() -> None:
+    api, _ = new_api_client()
+    payload = demo_request("S-03")
+    api.post("/api/v1/sessions", json=payload)
+
+    response = api.post(
+        "/api/v1/tools/run_risk_assessment",
+        json={"session_id": "demo-s03"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["parameter_version"] == "scorecard-2026.11-m2-final"
+
+
+def test_delete_session_then_missing() -> None:
+    api, _ = new_api_client()
+    api.post("/api/v1/sessions", json=demo_request("S-03"))
+
+    deleted = api.delete("/api/v1/sessions/demo-s03")
+    missing = api.get("/api/v1/sessions/demo-s03")
+
+    assert deleted.status_code == 204
+    assert missing.status_code == 404
+    assert missing.json()["error"]["code"] == "SESSION_NOT_FOUND"
+
+
+def test_expired_session_returns_gone() -> None:
+    api, clock = new_api_client()
+    api.post("/api/v1/sessions", json=demo_request("S-03"))
+    clock.advance(1801)
+
+    response = api.get("/api/v1/sessions/demo-s03")
+
+    assert response.status_code == 410
+    assert response.json()["error"]["code"] == "SESSION_EXPIRED"
+
+
+def test_unknown_session_returns_not_found() -> None:
+    api, _ = new_api_client()
+
+    response = api.post(
+        "/api/v1/assessments",
+        json={"session_id": "missing-session"},
+    )
+
+    assert response.status_code == 404
+    assert response.json()["error"]["code"] == "SESSION_NOT_FOUND"
+
+
+def test_tool_list_exposes_only_session_id() -> None:
+    api, _ = new_api_client()
+
+    response = api.get("/api/v1/tools")
+
+    assert response.status_code == 200
+    tools = response.json()
+    assert len(tools) == 1
+    assert tools[0]["function"]["name"] == "run_risk_assessment"
+    assert set(tools[0]["function"]["parameters"]["properties"]) == {"session_id"}

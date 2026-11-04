@@ -1,0 +1,35 @@
+{
+  "module_id": "M3",
+  "status": "technical_pass_pending_owner_review",
+  "tests": {
+    "passed": 47,
+    "failed": 0,
+    "warning": "FastAPI TestClient deprecation warning"
+  },
+  "session_store": {
+    "memory_only": true,
+    "ttl_seconds": 1800,
+    "delete_supported": true
+  },
+  "tool_executor": {
+    "tool_name": "run_risk_assessment",
+    "arguments": [
+      "session_id"
+    ],
+    "returns": "AssessmentResult"
+  },
+  "api_endpoints": [
+    "/health",
+    "/api/v1/sessions",
+    "/api/v1/sessions/{session_id}",
+    "/api/v1/assessments",
+    "/api/v1/tools/run_risk_assessment",
+    "/api/v1/tools"
+  ],
+  "llm_called": false,
+  "m4_implemented": false,
+  "issues": [],
+  "pending": [
+    "economic statistics owner review of tool output fields"
+  ]
+}

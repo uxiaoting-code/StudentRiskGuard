@@ -1,0 +1,53 @@
+{
+  "contract_version": "M2-CONTRACT-2026.11.04",
+  "status": "final",
+  "model_version": "calc-2026.11-m2-final",
+  "parameter_version": "scorecard-2026.11-m2-final",
+  "input_port": {
+    "name": "AssessmentRequest",
+    "schema_path": "contracts/assessment_request.schema.json",
+    "model_path": "riskguard.models.AssessmentRequest",
+    "required_root_fields": [
+      "session_id",
+      "income",
+      "debts"
+    ]
+  },
+  "output_port": {
+    "name": "AssessmentResult",
+    "schema_path": "contracts/assessment_result.schema.json",
+    "model_path": "riskguard.models.AssessmentResult"
+  },
+  "scorecard": {
+    "runtime_path": "src/riskguard/core/scorecard.json",
+    "contract_path": "contracts/scorecard.example.json",
+    "draft_only": false
+  },
+  "calculation_flow": [
+    "AssessmentRequest",
+    "compute_metrics",
+    "compute_irr_results",
+    "compute_risk",
+    "compute_cashflow",
+    "AssessmentResult"
+  ],
+  "agent_boundary": {
+    "tool_name": "run_risk_assessment",
+    "tool_argument": "session_id",
+    "llm_may_calculate": false,
+    "llm_may_explain": true,
+    "llm_input": "AssessmentResult",
+    "fallback_requires_backend_result": true
+  },
+  "invariants": [
+    "income_total = monthly_disposable_allowance + monthly_part_time_income",
+    "monthly_payment_total = debt monthly payments + recurring subscriptions",
+    "debt_to_income_ratio = monthly_payment_total / income_total",
+    "monthly_surplus = income_total - monthly_payment_total",
+    "cashflow debt_payment uses the same fixed-outflow definition as monthly_payment_total",
+    "annualized_irr = (1 + monthly_irr)^12 - 1",
+    "risk dimension ids and scorecard ids are identical",
+    "risk score is the sum of the four dimension contributions",
+    "risk level is selected only from the configured 0-100 bands"
+  ]
+}

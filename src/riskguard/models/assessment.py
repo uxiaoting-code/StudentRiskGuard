@@ -72,7 +72,7 @@ class AssessmentRequest(ContractModel):
         pattern=r"^[A-Za-z0-9_-]+$",
     )
     income: Income
-    debts: list[Debt] = Field(default_factory=list, max_length=20)
+    debts: list[Debt] = Field(max_length=20)
     savings_balance: float = Field(default=0.0, ge=0)
     recurring_subscriptions: list[RecurringSubscription] = Field(default_factory=list)
     behavior: BehaviorProfile = Field(default_factory=BehaviorProfile)

@@ -442,7 +442,7 @@
       ]
     }
   ],
-  "scorecard_version": "scorecard-2026.11-m2.1",
+  "scorecard_version": "scorecard-2026.11-m2-final",
   "scorecard_max_scores": {
     "debt_to_income": 35,
     "debt_stack": 15,
@@ -450,11 +450,11 @@
     "behavior_resilience": 30
   },
   "figures": {
-    "bnpl_employment": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig1_bnpl_employment.png",
-    "bnpl_dti": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig2_bnpl_dti.png",
-    "education": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig3_education.png",
-    "debt_count": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig4_debt_count.png",
-    "pressure": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig5_questionnaire_pressure.png",
-    "demo_risk": "E:\\codex\\黑客松比赛\\StudentRiskGuard\\docs\\assets\\m2\\fig6_demo_risk.png"
+    "bnpl_employment": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig1_bnpl_employment.png",
+    "bnpl_dti": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig2_bnpl_dti.png",
+    "education": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig3_education.png",
+    "debt_count": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig4_debt_count.png",
+    "pressure": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig5_questionnaire_pressure.png",
+    "demo_risk": "E:\\codex\\黑客松比赛\\m2最终版本\\docs\\assets\\m2\\fig6_demo_risk.png"
   }
 }

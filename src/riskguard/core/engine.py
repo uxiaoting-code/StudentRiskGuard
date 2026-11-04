@@ -17,7 +17,7 @@ from riskguard.models import (
 )
 
 
-MODEL_VERSION = "calc-2026.11-m2"
+MODEL_VERSION = "calc-2026.11-m2-final"
 
 
 def _stable_id(prefix: str, request: AssessmentRequest, parameter_version: str) -> str:

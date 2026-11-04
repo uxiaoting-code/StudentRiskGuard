@@ -7,6 +7,7 @@ import pytest
 from riskguard.core.irr import compute_irr_results
 from riskguard.core.metrics import compute_metrics
 from riskguard.core.scorecard import (
+    compute_behavior_score,
     compute_risk,
     interpolate_score,
     load_scorecard,
@@ -56,6 +57,24 @@ def test_s03_matches_frozen_level_and_score() -> None:
         "real_cost",
         "debt_stack",
     ]
+
+
+def test_behavior_dimension_reaches_configured_maximum() -> None:
+    case = next(
+        item for item in load_demo_cases() if item["sample_id"] == "S-03"
+    )
+    payload = case["request"] | {
+        "behavior": {
+            "borrow_to_repay": True,
+            "strict_overdue_count": 2,
+            "insufficient_months_last_3": 3,
+            "income_drop_30_cannot_cover": True,
+            "financial_cognition_score": 3,
+        }
+    }
+    request = AssessmentRequest.model_validate(payload)
+
+    assert compute_behavior_score(request, load_scorecard()) == 30
 
 
 def test_invalid_weight_sum_is_rejected() -> None:

@@ -8,7 +8,7 @@ T06,压力打分卡,P0,经济统计,2,3,"T04,T05",src/riskguard/core/scorecard.p
 T07,静态现金流,P0,经济统计,2,3,"T04,T05",src/riskguard/core/cashflow.py; tests/test_cashflow.py,12 个月结余序列和最低月份,序列连续；到期月供停止扣减,done
 T08,演示样本,P0,经济统计,1,2,T01,contracts/demo_cases.json; src/riskguard/data/synthetic.py,五套冻结演示样本,一键载入即可完成全流程,done
 T09,合成数据,P1,经济统计,3,3,T08,src/riskguard/data/synthetic.py,固定演示样本加载器,结果可复现；无真实个人信息,done
-T10,核心测试,P0,经济统计,2,3,"T04,T05,T06,T07",tests/test_metrics.py; tests/test_irr.py; tests/test_scorecard.py; tests/test_cashflow.py; tests/test_core_contract_smoke.py,核心单元测试与边界样本,24项pytest通过；覆盖0笔分期、0收入、异常期数,done
+T10,核心测试,P0,经济统计,2,3,"T04,T05,T06,T07",tests/test_metrics.py; tests/test_irr.py; tests/test_scorecard.py; tests/test_cashflow.py; tests/test_core_contract_smoke.py,核心单元测试与边界样本,25项pytest通过；覆盖0笔分期、0收入、异常期数,done
 T11,会话存储,P0,计算机,2,3,T03,src/riskguard/services/session_store.py; tests/test_session_store.py,匿名 session_id、TDD 过期、内存存储,无落盘；过期后不可读取,todo
 T12,评估服务,P0,计算机,3,3,"T04,T06,T07,T11",src/riskguard/services/assessment_service.py,组合核心计算并返回 AssessmentResult,不重复实现公式；响应符合 Schema,todo
 T13,工具执行器,P0,计算机,3,3,"T11,T12",src/riskguard/tools/definitions.py; src/riskguard/tools/executor.py,run_risk_assessment 与 simulate_new_installment 工具,工具参数校验和错误码统一,todo

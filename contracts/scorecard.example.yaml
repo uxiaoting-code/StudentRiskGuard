@@ -1,4 +1,4 @@
-version: scorecard-2026.11-m2
+version: scorecard-2026.11-m2.1
 draft_only: true
 source: "Frozen M2 expert-rule scorecard: 213 valid questionnaire responses, directional BNPL external comparison, and industry anchors."
 calibration_notes:
@@ -40,7 +40,7 @@ dimensions:
     max_score: 30
     feature: "configured behavior and resilience signals"
     rules:
-      borrow_to_repay: 10
+      borrow_to_repay: 11
       strict_overdue_min_count: 2
       strict_overdue: 6
       insufficient_month_points: [0, 2, 4, 6]

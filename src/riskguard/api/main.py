@@ -8,10 +8,12 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.responses import JSONResponse
 
 from riskguard import __version__
+from riskguard.agent import AgentRunner, ChatModel, DeepSeekClient
 from riskguard.models import (
     ApiErrorDetail,
     ApiErrorResponse,
     AssessmentRequest,
+    AgentResponse,
     AssessmentResult,
     HealthResponse,
     RunAssessmentRequest,
@@ -54,22 +56,29 @@ def _error_response(
 def create_app(
     *,
     session_store: SessionStore | None = None,
+    llm_client: ChatModel | None = None,
 ) -> FastAPI:
     store = session_store if session_store is not None else SessionStore()
     assessment_service = AssessmentService(store)
     tool_executor = ToolExecutor(assessment_service)
+    agent_runner = AgentRunner(
+        session_store=store,
+        tool_executor=tool_executor,
+        llm_client=llm_client or DeepSeekClient.from_env(),
+    )
 
     api = FastAPI(
         title="StudentRiskGuard API",
         version=__version__,
         description=(
-            "大学生负债压力自检与理性消费科普 Agent。M3 提供匿名会话、"
-            "确定性评估工具和 API；不提供授信或借贷功能。"
+            "大学生负债压力自检与理性消费科普 Agent。M4 提供匿名会话、"
+            "确定性评估工具、受约束智能解读和 API；不提供授信或借贷功能。"
         ),
     )
     api.state.session_store = store
     api.state.assessment_service = assessment_service
     api.state.tool_executor = tool_executor
+    api.state.agent_runner = agent_runner
 
     @api.middleware("http")
     async def attach_request_id(request: Request, call_next):
@@ -181,6 +190,14 @@ def create_app(
             RUN_RISK_ASSESSMENT_TOOL_NAME,
             {"session_id": payload.session_id},
         )
+
+    @api.post(
+        "/api/v1/agent/assess",
+        response_model=AgentResponse,
+        tags=["agent"],
+    )
+    def assess_with_agent(payload: RunAssessmentRequest) -> AgentResponse:
+        return agent_runner.assess(payload.session_id)
 
     @api.post(
         "/api/v1/tools/run_risk_assessment",

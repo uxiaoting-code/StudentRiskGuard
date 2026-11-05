@@ -1,6 +1,6 @@
 # StudentRiskGuard
 
-大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核和 M3 会话/工具/API 层；M4 Agent 工具调用编排尚未实现。
+大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层和 M4 Agent 工具调用链；M5 页面闭环尚未实现。
 
 ## 当前状态
 
@@ -8,7 +8,7 @@
 - M1：Pydantic 模型与 JSON Schema 对齐。
 - M2：DTI、IRR、评分卡、现金流和存款缓冲已完成，五套 Demo 通过。
 - M3：内存会话、ToolExecutor、确定性评估 API 已完成。
-- M4：DeepSeek 交互 Agent 尚未实现。
+- M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。
 
 ## 测试
 
@@ -16,7 +16,7 @@
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-当前测试数量：47。
+当前测试数量：54。
 
 ## 本地运行
 
@@ -81,6 +81,20 @@ POST /api/v1/assessments
 ```
 
 响应为完整 `AssessmentResult`。
+
+### 运行 Agent 评估
+
+```http
+POST /api/v1/agent/assess
+```
+
+请求：
+
+```json
+{"session_id": "demo-s03"}
+```
+
+返回 `AgentResponse`，包含 `assessment`、`explanation` 和 `tool_activity`。真实 DeepSeek 调用需要配置 `DEEPSEEK_API_KEY`；未配置时自动返回模板降级结果。
 
 ### 工具入口
 

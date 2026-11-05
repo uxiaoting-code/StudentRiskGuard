@@ -1,0 +1,27 @@
+{
+  "module_id": "M4",
+  "status": "technical_pass_live_llm_pending",
+  "tests": {
+    "passed": 54,
+    "failed": 0,
+    "warning": "FastAPI TestClient deprecation warning"
+  },
+  "agent_flow": [
+    "validate_session",
+    "request_tool_call",
+    "execute_tool",
+    "generate_explanation",
+    "validate_explanation",
+    "complete"
+  ],
+  "tool_name": "run_risk_assessment",
+  "llm_exposes_raw_financial_details": false,
+  "fallback_verified": true,
+  "live_deepseek_tool_call_verified": false,
+  "live_deepseek_reason": "DEEPSEEK_API_KEY not available in current environment",
+  "pending": [
+    "live DeepSeek tool_call verification",
+    "economic statistics Prompt review",
+    "M6 safety rules"
+  ]
+}

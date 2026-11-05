@@ -45,6 +45,11 @@
 - 不暴露模型思维链、系统 Prompt、API Key 或原始工具参数。
 - `/api/v1/agent/assess` 返回 `AgentResponse`。
 
+### C-M4-6 会话绑定保护
+
+- `src/riskguard/agent/runner.py`
+- 工具参数必须且只能包含当前会话的 `session_id`；模型试图切换到其他会话时，直接降级并重新执行当前会话的确定性评估。
+
 ### DeepSeek 客户端
 
 - `src/riskguard/agent/deepseek.py`
@@ -55,7 +60,7 @@
 ## 2. 验证结果
 
 ```text
-54 passed, 1 warning
+55 passed, 1 warning
 ```
 
 测试覆盖：
@@ -66,6 +71,7 @@
 - 解释不含阿拉伯数字。
 - 解释只能引用实际风险维度。
 - 模型不接收原始财务明细。
+- 模型不能把工具调用切换到其他匿名会话。
 - 无 tool_call 时降级。
 - 非法解释时降级。
 - DeepSeek HTTP 客户端正确发送 tools、tool_choice 和认证头。

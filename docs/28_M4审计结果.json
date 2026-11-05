@@ -2,7 +2,7 @@
   "module_id": "M4",
   "status": "technical_pass_live_llm_pending",
   "tests": {
-    "passed": 54,
+    "passed": 55,
     "failed": 0,
     "warning": "FastAPI TestClient deprecation warning"
   },
@@ -17,8 +17,10 @@
   "tool_name": "run_risk_assessment",
   "llm_exposes_raw_financial_details": false,
   "fallback_verified": true,
+  "session_binding_verified": true,
   "live_deepseek_tool_call_verified": false,
   "live_deepseek_reason": "DEEPSEEK_API_KEY not available in current environment",
+  "runtime_http_dependency_declared": true,
   "pending": [
     "live DeepSeek tool_call verification",
     "economic statistics Prompt review",

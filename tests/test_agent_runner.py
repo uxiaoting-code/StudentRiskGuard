@@ -249,3 +249,31 @@ def test_deepseek_client_requires_api_key() -> None:
             client.complete(messages=[{"role": "user", "content": "test"}])
     finally:
         client._http_client.close()
+
+
+def test_tool_call_cannot_switch_sessions() -> None:
+    store = SessionStore()
+    current = demo_request("S-03").model_copy(
+        update={"session_id": "agent-current"}
+    )
+    other = demo_request("S-01").model_copy(
+        update={"session_id": "agent-other"}
+    )
+    store.create(current)
+    store.create(other)
+    service = AssessmentService(store)
+    model = FakeChatModel(
+        [tool_call_response("agent-other"), explanation_response()]
+    )
+    runner = AgentRunner(
+        session_store=store,
+        tool_executor=ToolExecutor(service),
+        llm_client=model,
+    )
+
+    response = runner.assess("agent-current")
+
+    assert response.status == "degraded"
+    assert response.assessment is not None
+    assert response.assessment.request_id == service.assess(current).request_id
+    assert len(model.calls) == 1

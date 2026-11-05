@@ -56,7 +56,10 @@ class AgentRunner:
         tool_activity: list[ToolActivity] = []
         try:
             assistant_message, tool_call = self._request_tool_call(session_id)
-            result, activity = self._execute_tool_call(tool_call)
+            result, activity = self._execute_tool_call(
+                tool_call,
+                expected_session_id=session_id,
+            )
             tool_activity.append(activity)
             explanation = self._generate_explanation(
                 session_id=session_id,
@@ -112,7 +115,12 @@ class AgentRunner:
             return message, tool_call
         raise ToolCallMissing("DeepSeek did not return run_risk_assessment")
 
-    def _execute_tool_call(self, tool_call: dict[str, Any]) -> tuple[AssessmentResult, ToolActivity]:
+    def _execute_tool_call(
+        self,
+        tool_call: dict[str, Any],
+        *,
+        expected_session_id: str,
+    ) -> tuple[AssessmentResult, ToolActivity]:
         function = tool_call["function"]
         try:
             arguments = json.loads(function.get("arguments", "{}"))
@@ -121,10 +129,15 @@ class AgentRunner:
         if not isinstance(arguments, dict):
             raise ExplanationInvalid("tool arguments must be an object")
 
+        if set(arguments) != {"session_id"}:
+            raise ExplanationInvalid("tool arguments must contain only session_id")
+        if arguments["session_id"] != expected_session_id:
+            raise ExplanationInvalid("tool call does not target the current session")
+
         started = time.perf_counter()
         result = self._tool_executor.execute(
             RUN_RISK_ASSESSMENT_TOOL_NAME,
-            arguments,
+            {"session_id": expected_session_id},
         )
         return result, ToolActivity(
             tool=RUN_RISK_ASSESSMENT_TOOL_NAME,

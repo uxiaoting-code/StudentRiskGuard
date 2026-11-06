@@ -5,12 +5,44 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from riskguard.models import FIXED_BOUNDARY_NOTICE
+from riskguard.agent.schemas import (
+    AssessmentDraft,
+    EducationAnswer,
+    EducationCard,
+    ExtractionResult,
+    ScenarioExtractionResult,
+)
+from riskguard.models import (
+    FIXED_BOUNDARY_NOTICE,
+    AssessmentRequest,
+    Explanation,
+)
 
 TOOL_SYSTEM_PROMPT = """你是 StudentRiskGuard 的工具调度 Agent。
 你只负责对当前匿名会话调用 run_risk_assessment 工具，不得自行计算任何数值。
 工具参数只能是 session_id，不能请求或输出收入、债务、订阅等原始明细。
 必须先调用工具，再等待后端返回 AssessmentResult。"""
+
+EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽取 Agent。
+你的唯一任务是把大学生关于收入、分期、订阅和现金流的自然语言描述整理成结构化草稿。
+你不进行任何金融计算，不判断风险等级，不提供借贷或投资建议。
+
+严格遵守：
+1. 只输出严格 JSON，不要 Markdown 代码围栏、前后说明或注释。
+2. 只能使用提供的 ExtractionResult Schema 和 AssessmentRequest Schema 中的字段。
+3. 禁止新增字段、拼写变体或隐藏字段。
+4. 金额单位统一为人民币元。
+5. 利率使用小数，例如 12% 写成 0.12，不能写成 12。
+6. 月供不是本金；不能把同一数字同时猜成本金和月供。
+7. 不得编造缺失的本金、月供、期数、利率、收入或订阅金额。
+8. 用户明确说没有分期时，debts 为空数组且 no_debts=true。
+9. 用户没有提到是否有分期的，debts 和 no_debts 保持 null，不能擅自假设没有负债。
+10. 信息不足时 status=needs_more_info，并在 missing_fields 和 question 中说明需要补充什么。
+11. 数值非法时 status=invalid，在 warnings 中说明原因。
+12. 只有所有必填字段完整且合法时，status 才能是 complete。
+13. existing_draft 是已经确认或已经抽取的草稿；返回时必须保留其中非空字段，除非用户明确纠正。
+14. 用户补充信息时，只更新用户新提到的字段，不要删除 existing_draft 中已有值。
+15. 不要输出用户原文，不要复述整段自然语言。"""
 
 EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，面向中国在校大学生提供负债压力自查和理性消费科普。
 
@@ -18,13 +50,15 @@ EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，
 1. 你只解释工具返回的 AssessmentResult，不进行计算。
 2. 不得修改、补全或创造任何金额、利率、分数、期数、概率和现金流数值。
 3. 不得输出贷款审批、授信额度、通过率、放款建议或借贷产品推荐。
-4. 建议只围绕预算核对、真实成本理解、与家人沟通、寻求校园支持和理性消费。
-5. risk_sources 必须引用工具结果中的 dimension_id。
-6. 只输出严格 JSON，不要 Markdown 代码围栏或额外说明。
-7. 不重复任何阿拉伯数字；具体数值由前端从 AssessmentResult 渲染。
-8. boundary_notice 必须逐字等于：
+4. 不得推荐具体平台、品牌、分期产品或投资产品。
+5. 不得提供“以贷养贷”方案，不得承诺收益或保证解决债务。
+6. 建议只围绕预算核对、真实成本理解、与家人沟通、寻求校园支持和理性消费。
+7. risk_sources 必须引用工具结果中的 dimension_id。
+8. 只输出严格 JSON，不要 Markdown 代码围栏或额外说明。
+9. 不重复任何阿拉伯数字；具体数值由前端从 AssessmentResult 渲染。
+10. boundary_notice 必须逐字等于：
 {FIXED_BOUNDARY_NOTICE}
-"""
+11. 输出字段必须完整符合提供的 Explanation Schema。"""
 
 
 def build_tool_messages(session_id: str) -> list[dict[str, Any]]:
@@ -36,6 +70,35 @@ def build_tool_messages(session_id: str) -> list[dict[str, Any]]:
                 {
                     "task": "对当前匿名会话执行负债压力评估，必须先调用 run_risk_assessment。",
                     "session_id": session_id,
+                },
+                ensure_ascii=False,
+            ),
+        },
+    ]
+
+
+def build_extraction_messages(
+    *,
+    user_message: str,
+    existing_draft: AssessmentDraft | None = None,
+) -> list[dict[str, Any]]:
+    """Build the one extraction request. Raw text goes only to this model call."""
+
+    return [
+        {"role": "system", "content": EXTRACTION_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "task": "从本轮用户消息中抽取或补充评估草稿。",
+                    "existing_draft": (
+                        existing_draft.model_dump(mode="json", exclude_none=True)
+                        if existing_draft is not None
+                        else None
+                    ),
+                    "extraction_result_schema": ExtractionResult.model_json_schema(),
+                    "assessment_request_schema": AssessmentRequest.model_json_schema(),
+                    "user_message": user_message,
                 },
                 ensure_ascii=False,
             ),
@@ -58,6 +121,7 @@ def build_explanation_messages(
                 {
                     "task": "基于工具结果生成学生可理解的风险解释，不要重新计算。",
                     "session_id": session_id,
+                    "explanation_schema": Explanation.model_json_schema(),
                 },
                 ensure_ascii=False,
             ),
@@ -67,5 +131,75 @@ def build_explanation_messages(
             "role": "tool",
             "tool_call_id": tool_call_id,
             "content": json.dumps(tool_result, ensure_ascii=False),
+        },
+    ]
+
+
+EDUCATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的金融教育回答 Agent。
+你只能根据提供的 EducationCard 回答，不得自行补充金融事实或数字。
+
+严格遵守：
+1. 只使用卡片中的 key_points 和 allowed_actions。
+2. 不推荐具体平台、品牌、分期产品或投资产品。
+3. 不承诺收益，不承诺解决债务，不提供以贷养贷方案。
+4. 不判断贷款审批、授信额度、通过率或放款结果。
+5. 用大学生能理解的语言回答。
+6. 只输出严格 JSON，不要 Markdown 代码围栏。
+7. 不输出阿拉伯数字；具体数值由工具或页面展示。
+8. boundary_notice 必须逐字等于：
+{FIXED_BOUNDARY_NOTICE}
+9. 输出字段必须符合 EducationAnswer Schema。"""
+
+
+def build_education_messages(
+    *,
+    question: str,
+    card: EducationCard,
+) -> list[dict[str, Any]]:
+    return [
+        {"role": "system", "content": EDUCATION_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "task": "只基于这张教育卡片回答用户问题。",
+                    "education_card": card.model_dump(mode="json"),
+                    "answer_schema": EducationAnswer.model_json_schema(),
+                    "user_question": question,
+                },
+                ensure_ascii=False,
+            ),
+        },
+    ]
+
+
+SCENARIO_EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的情景模拟信息抽取 Agent。
+你的任务是从用户关于“如果新增一笔分期会怎样”的自然语言中提取新增分期字段。
+你不进行任何风险计算，也不推荐借贷产品或平台。
+
+严格遵守：
+1. 只输出严格 JSON，不要 Markdown 代码围栏。
+2. 只能输出 ScenarioExtractionResult Schema 中的字段。
+3. 金额单位为人民币元，利率使用小数，例如 12% 写成 0.12。
+4. 不得编造缺失的本金、月供、期数或利率。
+5. 信息不足返回 needs_more_info，并在 missing_fields 和 question 中说明。
+6. 数值非法返回 invalid。
+7. 该类问题只用于数学情景模拟，不代表真实借款建议。
+8. 只抽取用户明确描述的新增分期，不要修改已有会话数据。"""
+
+
+def build_scenario_extraction_messages(*, user_message: str) -> list[dict[str, Any]]:
+    return [
+        {"role": "system", "content": SCENARIO_EXTRACTION_SYSTEM_PROMPT},
+        {
+            "role": "user",
+            "content": json.dumps(
+                {
+                    "task": "提取新增分期情景字段。",
+                    "scenario_result_schema": ScenarioExtractionResult.model_json_schema(),
+                    "user_message": user_message,
+                },
+                ensure_ascii=False,
+            ),
         },
     ]

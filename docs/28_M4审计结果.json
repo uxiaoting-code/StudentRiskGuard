@@ -2,7 +2,7 @@
   "module_id": "M4",
   "status": "technical_pass_live_llm_pending",
   "tests": {
-    "passed": 55,
+    "passed": 77,
     "failed": 0,
     "warning": "FastAPI TestClient deprecation warning"
   },
@@ -23,7 +23,37 @@
   "runtime_http_dependency_declared": true,
   "pending": [
     "live DeepSeek tool_call verification",
-    "economic statistics Prompt review",
-    "M6 safety rules"
-  ]
+    "economic statistics Prompt and education-card review",
+    "M5 page integration",
+    "M6 full safety test suite"
+  ],
+  "m4a": {
+    "status": "technical_pass_live_llm_pending",
+    "natural_language_intake": true,
+    "draft_store_ttl_seconds": 1800,
+    "max_clarification_turns": 3,
+    "raw_text_persisted": false
+  },
+  "m4b": {
+    "status": "technical_pass_live_llm_pending",
+    "chat_endpoint": "/api/v1/agent/chat",
+    "intent_routes": [
+      "assessment_intake",
+      "clarification",
+      "risk_explanation",
+      "education",
+      "scenario_simulation",
+      "out_of_scope"
+    ],
+    "tools": [
+      "run_risk_assessment",
+      "retrieve_education_topic",
+      "simulate_new_installment"
+    ],
+    "education_cards": 10,
+    "education_review_status": "pending",
+    "conversation_store": "in_memory_ttl",
+    "scenario_store": "in_memory_ttl",
+    "minimal_safety_guard": true
+  }
 }

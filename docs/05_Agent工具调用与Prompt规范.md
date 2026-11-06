@@ -216,7 +216,7 @@ DeepSeek tool_call
 3. 不得输出贷款审批、授信额度、通过率、放款建议或任何借贷产品推荐。
 4. 不得推荐具体平台、品牌、分期产品或“以贷养贷”方案。
 5. 建议只能围绕预算核对、真实成本理解、与家人沟通、寻求校园支持和理性消费。
-6. 风险来源必须引用工具结果中的 dimension_id 或 debt_id。
+6. 风险来源必须引用工具结果中的 dimension_id；当前 M4 不把单笔 debt_id 作为解释输出。
 7. 输出必须是严格 JSON，不得输出 Markdown 代码围栏或额外说明。
 8. boundary_notice 必须使用固定文本。
 
@@ -348,3 +348,28 @@ DeepSeek tool_call
 - [ ] 工具失败时进入降级。
 - [ ] 工具轨迹可被前端展示。
 - [ ] 日志不含原始财务数据。
+
+## 13. M4-B 统一对话与科普约束
+
+M4-B 使用确定性意图路由，不让 LLM 自行决定所有工具调用。支持：
+
+```text
+assessment_intake
+clarification
+risk_explanation
+education
+scenario_simulation
+out_of_scope
+```
+
+工具边界：
+
+- `retrieve_education_topic` 只读取 `education_cards.json`；
+- `simulate_new_installment` 只接收 `session_id` 和 `scenario_id`；
+- 情景明细保存在后端临时场景存储，不直接透传给模型；
+- 情景模拟不修改原始会话；
+- 报告模型仍然只接收 `AssessmentResult`，不接收原始自然语言。
+
+科普 Prompt 必须只基于卡片内容回答，不能新增卡片外的金融事实，不能推荐平台、品牌、产品或投资机会，不能承诺收益或解决债务。当前所有教育卡片标记为 `review_status=pending`，经济统计审核后才能改为 `approved`。
+
+M4-B 增加最小安全校验：借贷平台、审批、授信额度、通过率、放款、以贷养贷、收益承诺等违规表达触发安全降级或越界回复。

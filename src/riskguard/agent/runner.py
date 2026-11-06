@@ -16,6 +16,7 @@ from riskguard.agent.errors import (
 )
 from riskguard.agent.fallback import build_fallback_explanation
 from riskguard.agent.prompts import build_explanation_messages, build_tool_messages
+from riskguard.agent.safety import is_safe_explanation
 from riskguard.models import (
     AgentError,
     AgentResponse,
@@ -194,6 +195,8 @@ class AgentRunner:
         )
         if re.search(r"\d", narrative):
             raise ExplanationInvalid("explanation must not restate numeric values")
+        if not is_safe_explanation(explanation):
+            raise ExplanationInvalid("explanation contains a forbidden recommendation or claim")
 
     def _degraded_response(
         self,

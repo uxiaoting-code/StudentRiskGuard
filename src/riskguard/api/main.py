@@ -9,6 +9,16 @@ from fastapi.responses import JSONResponse
 
 from riskguard import __version__
 from riskguard.agent import AgentRunner, ChatModel, DeepSeekClient
+from riskguard.agent.chat import ChatOrchestrator
+from riskguard.agent.intake import IntakeNotReady, IntakeService
+from riskguard.agent.schemas import (
+    AgentChatRequest,
+    AgentChatResponse,
+    ConfirmIntakeRequest,
+    EducationCard,
+    IntakeResponse,
+    NaturalLanguageIntakeRequest,
+)
 from riskguard.models import (
     ApiErrorDetail,
     ApiErrorResponse,
@@ -22,14 +32,24 @@ from riskguard.models import (
 )
 from riskguard.services import (
     AssessmentService,
+    ConversationExpired,
+    ConversationNotFound,
+    ConversationStore,
+    DraftExpired,
+    DraftNotFound,
+    DraftStore,
+    DraftTurnLimit,
+    ScenarioStore,
     SessionAlreadyExists,
     SessionExpired,
     SessionNotFound,
     SessionStore,
 )
+from riskguard.services.education_service import EducationService
+from riskguard.services.scenario_service import ScenarioService
 from riskguard.tools import (
-    RUN_RISK_ASSESSMENT_TOOL,
     RUN_RISK_ASSESSMENT_TOOL_NAME,
+    TOOL_DEFINITIONS,
     ToolArgumentError,
     ToolExecutor,
     ToolNotFound,
@@ -56,15 +76,58 @@ def _error_response(
 def create_app(
     *,
     session_store: SessionStore | None = None,
+    draft_store: DraftStore | None = None,
+    conversation_store: ConversationStore | None = None,
+    scenario_store: ScenarioStore | None = None,
+    education_service: EducationService | None = None,
     llm_client: ChatModel | None = None,
 ) -> FastAPI:
     store = session_store if session_store is not None else SessionStore()
     assessment_service = AssessmentService(store)
-    tool_executor = ToolExecutor(assessment_service)
+    model_client = llm_client or DeepSeekClient.from_env()
+    drafts = draft_store if draft_store is not None else DraftStore()
+    conversations = (
+        conversation_store if conversation_store is not None else ConversationStore()
+    )
+    scenarios = scenario_store if scenario_store is not None else ScenarioStore()
+    education = (
+        education_service
+        if education_service is not None
+        else EducationService(llm_client=model_client)
+    )
+    scenario_service = ScenarioService(
+        scenario_store=scenarios,
+        session_store=store,
+        assessment_service=assessment_service,
+        llm_client=model_client,
+    )
+    tool_executor = ToolExecutor(
+        assessment_service,
+        education_service=education,
+        scenario_service=scenario_service,
+    )
     agent_runner = AgentRunner(
         session_store=store,
         tool_executor=tool_executor,
-        llm_client=llm_client or DeepSeekClient.from_env(),
+        llm_client=model_client,
+    )
+    intake_service = IntakeService(
+        draft_store=drafts,
+        session_store=store,
+        agent_runner=agent_runner,
+        llm_client=model_client,
+        conversation_store=conversations,
+    )
+    chat_orchestrator = ChatOrchestrator(
+        conversation_store=conversations,
+        draft_store=drafts,
+        scenario_store=scenarios,
+        intake_service=intake_service,
+        agent_runner=agent_runner,
+        tool_executor=tool_executor,
+        education_service=education,
+        scenario_service=scenario_service,
+        llm_client=model_client,
     )
 
     api = FastAPI(
@@ -79,6 +142,13 @@ def create_app(
     api.state.assessment_service = assessment_service
     api.state.tool_executor = tool_executor
     api.state.agent_runner = agent_runner
+    api.state.draft_store = drafts
+    api.state.conversation_store = conversations
+    api.state.scenario_store = scenarios
+    api.state.education_service = education
+    api.state.scenario_service = scenario_service
+    api.state.intake_service = intake_service
+    api.state.chat_orchestrator = chat_orchestrator
 
     @api.middleware("http")
     async def attach_request_id(request: Request, call_next):
@@ -112,6 +182,60 @@ def create_app(
             status.HTTP_409_CONFLICT,
             "SESSION_EXISTS",
             "该匿名会话已存在，请使用新的会话 ID。",
+        )
+
+    @api.exception_handler(ConversationNotFound)
+    async def handle_conversation_not_found(request: Request, exc: ConversationNotFound):
+        return _error_response(
+            request,
+            status.HTTP_404_NOT_FOUND,
+            "CONVERSATION_NOT_FOUND",
+            "对话上下文不存在或已经过期，请重新开始。",
+        )
+
+    @api.exception_handler(ConversationExpired)
+    async def handle_conversation_expired(request: Request, exc: ConversationExpired):
+        return _error_response(
+            request,
+            status.HTTP_410_GONE,
+            "CONVERSATION_EXPIRED",
+            "对话上下文已过期，请重新开始。",
+        )
+
+    @api.exception_handler(DraftNotFound)
+    async def handle_draft_not_found(request: Request, exc: DraftNotFound):
+        return _error_response(
+            request,
+            status.HTTP_404_NOT_FOUND,
+            "DRAFT_NOT_FOUND",
+            "自然语言草稿不存在或已经完成，请重新开始。",
+        )
+
+    @api.exception_handler(DraftExpired)
+    async def handle_draft_expired(request: Request, exc: DraftExpired):
+        return _error_response(
+            request,
+            status.HTTP_410_GONE,
+            "DRAFT_EXPIRED",
+            "自然语言草稿已过期，请重新开始。",
+        )
+
+    @api.exception_handler(DraftTurnLimit)
+    async def handle_draft_turn_limit(request: Request, exc: DraftTurnLimit):
+        return _error_response(
+            request,
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "DRAFT_TURN_LIMIT",
+            "自然语言补充次数过多，请改用结构化表单或重新开始。",
+        )
+
+    @api.exception_handler(IntakeNotReady)
+    async def handle_intake_not_ready(request: Request, exc: IntakeNotReady):
+        return _error_response(
+            request,
+            status.HTTP_409_CONFLICT,
+            "DRAFT_NOT_READY",
+            "评估信息尚未补全，请先完成追问。",
         )
 
     @api.exception_handler(ToolNotFound)
@@ -200,6 +324,42 @@ def create_app(
         return agent_runner.assess(payload.session_id)
 
     @api.post(
+        "/api/v1/agent/intake",
+        response_model=IntakeResponse,
+        tags=["agent"],
+    )
+    def submit_intake(payload: NaturalLanguageIntakeRequest) -> IntakeResponse:
+        return intake_service.submit(payload)
+
+    @api.post(
+        "/api/v1/agent/intake/{conversation_id}/confirm",
+        response_model=AgentResponse,
+        tags=["agent"],
+    )
+    def confirm_intake(
+        conversation_id: str,
+        payload: ConfirmIntakeRequest | None = None,
+    ) -> AgentResponse:
+        request = payload.assessment_request if payload is not None else None
+        return intake_service.confirm(conversation_id, request)
+
+    @api.post(
+        "/api/v1/agent/chat",
+        response_model=AgentChatResponse,
+        tags=["agent"],
+    )
+    def chat(payload: AgentChatRequest) -> AgentChatResponse:
+        return chat_orchestrator.chat(payload)
+
+    @api.get(
+        "/api/v1/education/topics",
+        response_model=list[EducationCard],
+        tags=["education"],
+    )
+    def list_education_topics() -> list[EducationCard]:
+        return education.list_topics()
+
+    @api.post(
         "/api/v1/tools/run_risk_assessment",
         response_model=AssessmentResult,
         tags=["tools"],
@@ -212,7 +372,7 @@ def create_app(
 
     @api.get("/api/v1/tools", tags=["tools"])
     def list_tools() -> list[dict]:
-        return [RUN_RISK_ASSESSMENT_TOOL]
+        return list(TOOL_DEFINITIONS)
 
     return api
 

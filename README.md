@@ -1,6 +1,6 @@
 # StudentRiskGuard
 
-大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层和 M4 Agent 工具调用链；M5 页面闭环尚未实现。
+大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层、M4 Agent 工具调用链、M4-A 自然语言录入和 M4-B 科普问答/情景模拟后端；M5 页面闭环尚未实现。
 
 ## 当前状态
 
@@ -8,7 +8,8 @@
 - M1：Pydantic 模型与 JSON Schema 对齐。
 - M2：DTI、IRR、评分卡、现金流和存款缓冲已完成，五套 Demo 通过。
 - M3：内存会话、ToolExecutor、确定性评估 API 已完成。
-- M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。
+- M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。\n- M4-A：自然语言抽取、草稿追问、用户确认和现有评估链路接入已完成。
+- M4-B：统一聊天入口、确定性意图路由、科普问答、情景模拟和最小安全校验已完成。
 
 ## 测试
 
@@ -16,7 +17,7 @@
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-当前测试数量：54。
+当前测试数量：77。
 
 ## 本地运行
 
@@ -94,7 +95,23 @@ POST /api/v1/agent/assess
 {"session_id": "demo-s03"}
 ```
 
-返回 `AgentResponse`，包含 `assessment`、`explanation` 和 `tool_activity`。真实 DeepSeek 调用需要配置 `DEEPSEEK_API_KEY`；未配置时自动返回模板降级结果。
+返回 `AgentResponse`，包含 `assessment`、`explanation` 和 `tool_activity`。真实 DeepSeek 调用需要配置 `DEEPSEEK_API_KEY`；未配置时自动返回模板降级结果。\n\n### 自然语言录入\n\n```http\nPOST /api/v1/agent/intake\n```\n\n请求示例：\n\n```json\n{"message": "我每个月生活费 2000，兼职 600，花呗每月还 300。"}\n```\n\n信息不足时返回 `needs_more_info` 和 `missing_fields`；信息完整时返回 `ready_for_confirmation`。用户确认后调用：\n\n```http\nPOST /api/v1/agent/intake/{conversation_id}/confirm\n```\n\n确认后创建匿名内存会话，并复用 `run_risk_assessment` 工具与现有解释链。
+
+### 统一对话入口
+
+```http
+POST /api/v1/agent/chat
+```
+
+支持自然语言录入、风险结果追问、金融教育问答、新增分期情景模拟和越界问题安全回复。科普卡片当前均为 `review_status=pending`。
+
+### 科普主题列表
+
+```http
+GET /api/v1/education/topics
+```
+
+返回审核中的教育卡片。
 
 ### 工具入口
 

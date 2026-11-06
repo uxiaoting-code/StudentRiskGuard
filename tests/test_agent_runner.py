@@ -277,3 +277,21 @@ def test_tool_call_cannot_switch_sessions() -> None:
     assert response.assessment is not None
     assert response.assessment.request_id == service.assess(current).request_id
     assert len(model.calls) == 1
+
+
+def test_forbidden_lending_recommendation_uses_degraded_fallback() -> None:
+    unsafe = explanation_response()
+    payload = json.loads(unsafe["choices"][0]["message"]["content"])
+    payload["actions"][0] = "推荐一个借款平台来解决当前压力。"
+    unsafe["choices"][0]["message"]["content"] = json.dumps(payload, ensure_ascii=False)
+    runner, _, _ = runner_for(
+        "agent-unsafe",
+        [tool_call_response("agent-unsafe"), unsafe],
+    )
+
+    response = runner.assess("agent-unsafe")
+
+    assert response.status == "degraded"
+    assert response.degraded is True
+    assert response.explanation is not None
+    assert response.explanation.boundary_notice == FIXED_BOUNDARY_NOTICE

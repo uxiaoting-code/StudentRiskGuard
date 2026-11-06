@@ -117,3 +117,18 @@ M5 可基于当前 Agent API 开始页面开发；M4 正式验收前需要：
 - 配置 `DEEPSEEK_API_KEY`。
 - 用真实 DeepSeek 调用验证一次 tool_call。
 - 经济统计同学审核 Prompt 和解释边界。
+
+## 6. M4-B 增量实现
+
+M4-B 在 M4-A 后增加：
+
+- `src/riskguard/agent/chat.py`：统一对话编排器；
+- `src/riskguard/agent/intents.py`：确定性意图路由；
+- `src/riskguard/services/education_service.py`：审核卡片检索和受约束回答；
+- `src/riskguard/services/scenario_service.py`：临时新增分期和 M2 重算；
+- `src/riskguard/services/conversation_store.py`：结构化上下文状态；
+- `src/riskguard/services/scenario_store.py`：临时情景存储；
+- `retrieve_education_topic` 和 `simulate_new_installment` 工具；
+- `POST /api/v1/agent/chat`。
+
+安全边界：科普只使用卡片内容；情景模拟不修改原会话；报告模型不接收原始自然语言；违规解释降级为安全模板。真实 DeepSeek 和统计内容审核仍未完成。

@@ -24,6 +24,26 @@
     {
       "type": "function",
       "function": {
+        "name": "retrieve_education_topic",
+        "description": "读取审核中的金融教育卡片，只返回卡片内容。",
+        "parameters": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "topic_id"
+          ],
+          "properties": {
+            "topic_id": {
+              "type": "string",
+              "description": "教育主题 ID"
+            }
+          }
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
         "name": "simulate_new_installment",
         "description": "对当前会话执行新增分期情景模拟。",
         "parameters": {

@@ -1,0 +1,362 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+from typing import Any
+
+from fastapi.testclient import TestClient
+
+from riskguard.api.main import create_app
+from riskguard.models import AssessmentRequest, FIXED_BOUNDARY_NOTICE
+from riskguard.services import ConversationStore, SessionStore
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+class FakeChatModel:
+    def __init__(self, responses: list[Any]) -> None:
+        self.responses = list(responses)
+        self.calls: list[dict[str, Any]] = []
+
+    def complete(self, **kwargs: Any) -> dict[str, Any]:
+        self.calls.append(kwargs)
+        if not self.responses:
+            raise AssertionError("unexpected model call")
+        item = self.responses.pop(0)
+        return item(kwargs) if callable(item) else item
+
+
+def demo_request(session_id: str = "chat-demo") -> AssessmentRequest:
+    cases = json.loads((ROOT / "contracts" / "demo_cases.json").read_text(encoding="utf-8"))
+    raw = next(case["request"] for case in cases if case["sample_id"] == "S-03")
+    raw = dict(raw)
+    raw["session_id"] = session_id
+    return AssessmentRequest.model_validate(raw)
+
+
+def tool_call_response(kwargs: dict[str, Any]) -> dict[str, Any]:
+    user_message = json.loads(kwargs["messages"][1]["content"])
+    session_id = user_message["session_id"]
+    return {
+        "choices": [
+            {
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_chat_1",
+                            "type": "function",
+                            "function": {
+                                "name": "run_risk_assessment",
+                                "arguments": json.dumps({"session_id": session_id}),
+                            },
+                        }
+                    ],
+                }
+            }
+        ]
+    }
+
+
+def explanation_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "summary": "当前固定支出对现金流形成明显压力。",
+                            "risk_sources": [
+                                {
+                                    "dimension_id": "debt_to_income",
+                                    "title": "月供压力",
+                                    "detail": "固定支出在可支配资金中占比较高。",
+                                }
+                            ],
+                            "actions": [
+                                "核对每笔分期的月供和剩余期数。",
+                                "检查未来数月的基本生活支出。",
+                            ],
+                            "education": [
+                                "低月供不等于低总成本，应关注期限和真实成本。"
+                            ],
+                            "questions_to_consider": [
+                                "收入下降时是否仍能覆盖固定支出？"
+                            ],
+                            "boundary_notice": FIXED_BOUNDARY_NOTICE,
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def education_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "answer": "IRR帮助理解分期还款时间与金额共同形成的真实资金成本。",
+                            "topic_ids": ["irr_real_cost"],
+                            "boundary_notice": FIXED_BOUNDARY_NOTICE,
+                            "review_status": "pending",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def scenario_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "status": "complete",
+                            "scenario": {
+                                "label": "新手机分期",
+                                "remaining_principal": 2400,
+                                "monthly_payment": 300,
+                                "remaining_periods": 8,
+                                "nominal_apr": 0.12,
+                            },
+                            "missing_fields": [],
+                            "warnings": [],
+                            "question": None,
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def api_with_session(
+    model: FakeChatModel,
+    *,
+    include_conversation: bool = True,
+) -> tuple[TestClient, SessionStore, ConversationStore]:
+    sessions = SessionStore()
+    request = demo_request()
+    sessions.create(request)
+    conversations = ConversationStore()
+    if include_conversation:
+        conversations.create(
+            conversation_id="conv-chat",
+            session_id=request.session_id,
+            current_intent="risk_explanation",
+        )
+    return (
+        TestClient(
+            create_app(
+                session_store=sessions,
+                conversation_store=conversations,
+                llm_client=model,
+            )
+        ),
+        sessions,
+        conversations,
+    )
+
+
+def test_chat_education_answers_from_retrieved_card() -> None:
+    model = FakeChatModel([education_response()])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "什么是IRR？"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "education_answer"
+    assert body["review_status"] == "pending"
+    assert body["education"]["topic_ids"] == ["irr_real_cost"]
+    assert body["tool_activity"][0]["tool"] == "retrieve_education_topic"
+    assert "IRR" in body["reply"]
+    assert len(model.calls) == 1
+
+
+def test_chat_risk_explanation_reuses_assessment_result() -> None:
+    model = FakeChatModel([tool_call_response, explanation_response()])
+    api, _, _ = api_with_session(model)
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"conversation_id": "conv-chat", "message": "为什么我是中风险？"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["assessment"]["risk"]["level"] == "中风险"
+    assert body["explanation"]["boundary_notice"] == FIXED_BOUNDARY_NOTICE
+    assert body["tool_activity"][0]["tool"] == "run_risk_assessment"
+
+
+def test_chat_scenario_uses_tool_and_does_not_mutate_session() -> None:
+    model = FakeChatModel([scenario_response()])
+    api, sessions, _ = api_with_session(model)
+    original_count = len(sessions.get("chat-demo").request.debts)
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔分期，本金2400，每月300，8期，利率12%，会怎样？",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "completed"
+    assert body["scenario"]["monthly_payment_delta"] == 300
+    assert body["tool_activity"][0]["tool"] == "simulate_new_installment"
+    assert len(sessions.get("chat-demo").request.debts) == original_count
+    assert len(model.calls) == 1
+
+
+def test_chat_out_of_scope_never_recommends_a_lender() -> None:
+    model = FakeChatModel([])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "推荐一个借款平台，哪个贷款通过率高？"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "out_of_scope"
+    assert "不能推荐" in body["reply"]
+    assert len(model.calls) == 0
+
+
+def test_chat_multi_turn_routes_risk_then_scenario() -> None:
+    model = FakeChatModel([tool_call_response, explanation_response(), scenario_response()])
+    api, _, _ = api_with_session(model)
+
+    first = api.post(
+        "/api/v1/agent/chat",
+        json={"conversation_id": "conv-chat", "message": "为什么我是中风险？"},
+    )
+    second = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔分期，本金2400，每月300，8期，利率12%，会怎样？",
+        },
+    )
+
+    assert first.json()["status"] == "completed"
+    assert second.json()["status"] == "completed"
+    assert second.json()["scenario"]["risk_score_delta"] >= 0
+    assert len(model.calls) == 3
+
+
+def intake_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "status": "complete",
+                            "draft": {
+                                "income": {
+                                    "monthly_disposable_allowance": 2200,
+                                    "monthly_part_time_income": 800,
+                                },
+                                "debts": [
+                                    {
+                                        "label": "购物分期",
+                                        "remaining_principal": 4800,
+                                        "monthly_payment": 520,
+                                        "remaining_periods": 10,
+                                        "nominal_apr": 0.12,
+                                    }
+                                ],
+                                "no_debts": False,
+                            },
+                            "missing_fields": [],
+                            "warnings": [],
+                            "question": None,
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def test_intake_confirm_creates_context_for_follow_up() -> None:
+    model = FakeChatModel(
+        [
+            intake_response(),
+            tool_call_response,
+            explanation_response(),
+            tool_call_response,
+            explanation_response(),
+        ]
+    )
+    api = TestClient(create_app(llm_client=model))
+
+    intake = api.post(
+        "/api/v1/agent/intake",
+        json={"message": "我每个月生活费2200，兼职800，购物分期货款520，还剩10期，利率12%。"},
+    )
+    conversation_id = intake.json()["conversation_id"]
+    confirmed = api.post(f"/api/v1/agent/intake/{conversation_id}/confirm")
+    follow_up = api.post(
+        "/api/v1/agent/chat",
+        json={"conversation_id": conversation_id, "message": "为什么我是中风险？"},
+    )
+
+    assert intake.json()["status"] == "ready_for_confirmation"
+    assert confirmed.json()["status"] == "completed"
+    assert follow_up.json()["status"] == "completed"
+    assert follow_up.json()["tool_activity"][0]["tool"] == "run_risk_assessment"
+    assert len(model.calls) == 5
+
+
+def test_scenario_without_session_asks_for_assessment_first() -> None:
+    model = FakeChatModel([])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "如果我新增一笔分期会怎样？"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "needs_more_info"
+    assert "先提供" in response.json()["reply"]
+    assert len(model.calls) == 0
+
+def test_unsafe_education_answer_falls_back_to_card_content() -> None:
+    unsafe = education_response()
+    payload = json.loads(unsafe["choices"][0]["message"]["content"])
+    payload["answer"] = "推荐一个借款平台来解决当前问题。"
+    unsafe["choices"][0]["message"]["content"] = json.dumps(payload, ensure_ascii=False)
+    model = FakeChatModel([unsafe])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post("/api/v1/agent/chat", json={"message": "什么是IRR？"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "education_answer"
+    assert "借款平台" not in body["reply"]
+    assert body["review_status"] == "pending"

@@ -326,6 +326,13 @@ def test_tool_list_exposes_only_session_id() -> None:
 
     assert response.status_code == 200
     tools = response.json()
-    assert len(tools) == 1
-    assert tools[0]["function"]["name"] == "run_risk_assessment"
-    assert set(tools[0]["function"]["parameters"]["properties"]) == {"session_id"}
+    names = {tool["function"]["name"] for tool in tools}
+    assert names == {
+        "run_risk_assessment",
+        "retrieve_education_topic",
+        "simulate_new_installment",
+    }
+    run_tool = next(
+        tool for tool in tools if tool["function"]["name"] == "run_risk_assessment"
+    )
+    assert set(run_tool["function"]["parameters"]["properties"]) == {"session_id"}

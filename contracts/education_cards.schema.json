@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://studentriskguard.local/schemas/education_cards.schema.json",
+  "title": "EducationCards",
+  "type": "array",
+  "items": {
+    "additionalProperties": false,
+    "properties": {
+      "topic_id": {
+        "minLength": 1,
+        "title": "Topic Id",
+        "type": "string"
+      },
+      "title": {
+        "minLength": 1,
+        "title": "Title",
+        "type": "string"
+      },
+      "key_points": {
+        "items": {
+          "type": "string"
+        },
+        "minItems": 1,
+        "title": "Key Points",
+        "type": "array"
+      },
+      "allowed_actions": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Allowed Actions",
+        "type": "array"
+      },
+      "forbidden_claims": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Forbidden Claims",
+        "type": "array"
+      },
+      "keywords": {
+        "items": {
+          "type": "string"
+        },
+        "title": "Keywords",
+        "type": "array"
+      },
+      "review_status": {
+        "default": "pending",
+        "enum": [
+          "pending",
+          "approved"
+        ],
+        "title": "Review Status",
+        "type": "string"
+      }
+    },
+    "required": [
+      "topic_id",
+      "title",
+      "key_points"
+    ],
+    "title": "EducationCard",
+    "type": "object"
+  }
+}

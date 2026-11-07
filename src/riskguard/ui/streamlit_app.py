@@ -19,7 +19,7 @@ def main() -> None:
 
     st.title("StudentRiskGuard")
     st.caption("大学生负债压力自检与理性消费科普 Agent")
-    st.info("M1 工程骨架已就绪。M2 统计计算内核和 M4 Agent 工具调用链尚未接入。")
+    st.info("M4 Agent 后端已接入自然语言录入、科普问答和情景模拟；M5 页面闭环尚未实现。")
 
     left, right = st.columns(2)
     left.metric("当前版本", __version__)
@@ -29,6 +29,10 @@ def main() -> None:
     st.write(
         "本工具仅用于金融教育与个人负债压力自查，不采集征信数据，"
         "不评估贷款资格，不推荐借贷产品，不提供授信或放款功能。"
+    )
+    st.caption(
+        "自然语言输入仅用于当前会话的语义解析和金融教育回答；"
+        "不用于征信、授信、审批或借贷决策。报告只使用结构化计算结果，原始文本不持久化保存。"
     )
 
     st.subheader("下一阶段")

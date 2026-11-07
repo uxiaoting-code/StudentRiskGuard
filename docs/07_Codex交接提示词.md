@@ -115,7 +115,7 @@ M0-M9 已拆成“计算机任务”和“经济统计任务”两条泳道。�
 本次优先执行任务 T02、T03、T11、T12、T13、T14、T15、T16、T17。
 要求：
 1. 使用 Python 3.11、Streamlit、FastAPI、Pydantic v2 和 OpenAI 兼容客户端。
-2. 原始 AssessmentRequest 不直接发送给 DeepSeek。
+2. 报告解释模型不直接接收原始 `AssessmentRequest`；只接收结构化 `AssessmentResult`。自然语言抽取、科普和情景模型只接收当前轮必要文本。
 3. Agent 第一轮必须尝试调用 run_risk_assessment(session_id)。
 4. 工具执行后再把 AssessmentResult 交给 DeepSeek 生成解释。
 5. 不引入 LangChain、CrewAI、向量数据库或复杂 RAG。

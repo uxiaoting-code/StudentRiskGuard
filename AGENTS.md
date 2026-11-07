@@ -40,9 +40,12 @@ The economy/statistics owner must run survey track S0-S5 in parallel with M1-M3.
 - Do not evaluate loan approval, credit limit, or lending eligibility.
 - Do not recommend lenders, lending products, installment platforms, or borrowing.
 - Do not persist personal financial details in the MVP.
-- Do not send raw personal financial input to the LLM.
+- The report explanation model must receive only structured AssessmentResult, never raw user text.
+- Current-turn user text may be sent only to the dedicated extraction, education, or scenario model needed for the current task.
+- Full chat history and complete financial profiles must not be sent to any LLM.
+- Raw text must not be persisted, logged, written to a database, or written to localStorage.
 - All numerical results must come from deterministic Python code.
-- The LLM may only explain structured tool results.
+- The LLM may explain structured tool results and may perform constrained extraction, education, or scenario-extraction tasks; it must not calculate deterministic metrics.
 - Demo and test data must be synthetic.
 - Do not commit `.env`, API keys, real statements, or personal data.
 

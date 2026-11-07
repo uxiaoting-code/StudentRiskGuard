@@ -15,7 +15,6 @@
     "complete"
   ],
   "tool_name": "run_risk_assessment",
-  "llm_exposes_raw_financial_details": false,
   "fallback_verified": true,
   "session_binding_verified": true,
   "live_deepseek_tool_call_verified": false,
@@ -24,8 +23,8 @@
   "pending": [
     "live DeepSeek tool_call verification",
     "economic statistics Prompt and education-card review",
-    "M5 page integration",
-    "M6 full safety test suite"
+    "M5 page privacy notice verification",
+    "M6 full safety and privacy test suite"
   ],
   "m4a": {
     "status": "technical_pass_live_llm_pending",
@@ -55,5 +54,15 @@
     "conversation_store": "in_memory_ttl",
     "scenario_store": "in_memory_ttl",
     "minimal_safety_guard": true
-  }
+  },
+  "raw_text_sent_to_extraction_llm": true,
+  "raw_text_sent_to_education_llm": true,
+  "raw_text_sent_to_scenario_llm": true,
+  "raw_text_sent_to_report_llm": false,
+  "full_chat_history_sent_to_llm": false,
+  "complete_financial_profile_sent_to_llm": false,
+  "raw_text_persisted": false,
+  "raw_text_logged": false,
+  "raw_text_written_to_database": false,
+  "raw_text_written_to_localstorage": false
 }

@@ -38,7 +38,8 @@ class ToolExecutor:
     """Execute only explicitly registered tools.
 
     Tool arguments intentionally contain IDs only. Raw financial details stay in
-    the server-side session store and are never exposed to the LLM.
+    the server-side session store and are not passed as tool arguments. The
+    report model receives only structured tool results, not raw user text.
     """
 
     def __init__(

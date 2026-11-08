@@ -53,6 +53,11 @@ def _clear_ui_state(client: ApiClient) -> None:
             client.delete_session(session_id)
         except ApiClientError:
             pass
+    if st.session_state.get("auth_token"):
+        try:
+            client.logout()
+        except ApiClientError:
+            pass
     for key in (
         "session_id",
         "conversation_id",
@@ -62,9 +67,78 @@ def _clear_ui_state(client: ApiClient) -> None:
         "last_intake_response",
         "last_user_message",
         "last_error",
+        "auth_token",
+        "auth_user",
     ):
         st.session_state[key] = None
     st.rerun()
+
+
+def _set_authenticated_user(client: ApiClient, response: dict) -> None:
+    st.session_state.auth_token = response.get("token")
+    st.session_state.auth_user = {
+        "user_id": response.get("user_id"),
+        "username": response.get("username"),
+    }
+    client.set_access_token(st.session_state.auth_token)
+    st.session_state.last_error = None
+    st.rerun()
+
+
+def _render_auth_sidebar(client: ApiClient) -> None:
+    st.sidebar.header("账号")
+    user = st.session_state.get("auth_user")
+    if user:
+        st.sidebar.success(f"已登录：{user.get('username', '')}")
+        if st.sidebar.button("退出登录", key="auth_logout"):
+            try:
+                client.logout()
+            except ApiClientError as exc:
+                st.sidebar.warning(exc.message)
+            st.session_state.auth_token = None
+            st.session_state.auth_user = None
+            client.set_access_token(None)
+            st.rerun()
+        return
+
+    st.sidebar.caption("无需登录也可以直接使用访客模式。")
+    with st.sidebar.expander("登录 / 注册", expanded=False):
+        mode = st.radio(
+            "账号操作",
+            ["登录", "注册"],
+            key="auth_mode",
+            horizontal=True,
+        )
+        with st.form("auth_form", clear_on_submit=False):
+            username = st.text_input("用户名", key="auth_username")
+            password = st.text_input(
+                "密码",
+                type="password",
+                key="auth_password",
+            )
+            confirm = ""
+            if mode == "注册":
+                confirm = st.text_input(
+                    "确认密码",
+                    type="password",
+                    key="auth_confirm_password",
+                )
+            submitted = st.form_submit_button(mode)
+            if submitted:
+                username = username.strip()
+                if not username or not password:
+                    st.error("请输入用户名和密码。")
+                elif mode == "注册" and password != confirm:
+                    st.error("两次输入的密码不一致。")
+                else:
+                    try:
+                        if mode == "登录":
+                            response = client.login(username, password)
+                        else:
+                            response = client.register(username, password)
+                        _set_authenticated_user(client, response)
+                    except ApiClientError as exc:
+                        st.error(exc.message)
 
 
 def _render_sidebar(client: ApiClient) -> None:
@@ -428,7 +502,9 @@ def main() -> None:
     )
     init_state()
     client = ApiClient()
+    client.set_access_token(st.session_state.get("auth_token"))
     _render_header()
+    _render_auth_sidebar(client)
     _render_sidebar(client)
 
     chat_tab, form_tab = st.tabs(["智能对话自检", "结构化表单自检"])

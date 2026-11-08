@@ -90,8 +90,9 @@ The core chain is not complete unless all of the following are demonstrated:
 - FastAPI is an adapter over the same services, not a second calculation implementation.
 - Pydantic v2 models define request and response contracts.
 - Keep calculation logic in `src/riskguard/core/`.
-- Keep session state in process memory only.
-- No database, vector store, CSV persistence, or browser localStorage for personal details.
+- Keep financial session state in process memory only. The authentication database is an exception limited to account credentials and authentication sessions.
+- No database for personal financial details. SQLite is allowed only for account credentials and authentication sessions; never store financial details, raw chat text, or assessment payloads in that database.
+- Do not use vector stores, CSV persistence, or browser localStorage for personal details.
 - No LangChain, CrewAI, AutoGen, or RAG in the MVP.
 
 ## File ownership

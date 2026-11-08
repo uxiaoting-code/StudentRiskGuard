@@ -86,3 +86,48 @@ def test_api_client_translates_http_error() -> None:
 
     assert error.value.status_code == 422
     assert error.value.message == "输入不合法。"
+
+def test_api_client_auth_flow_sends_bearer_token() -> None:
+    calls: list[tuple[str, str, str | None]] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(
+            (
+                request.method,
+                request.url.path,
+                request.headers.get("authorization"),
+            )
+        )
+        if request.url.path == "/api/v1/auth/login":
+            return httpx.Response(
+                200,
+                json={
+                    "user_id": "usr_1",
+                    "username": "student_demo",
+                    "token": "token-1",
+                    "expires_at": "2026-11-08T12:00:00+00:00",
+                },
+            )
+        if request.url.path == "/api/v1/auth/me":
+            return httpx.Response(
+                200,
+                json={"user_id": "usr_1", "username": "student_demo"},
+            )
+        if request.url.path == "/api/v1/auth/logout":
+            return httpx.Response(200, json={"status": "ok"})
+        return httpx.Response(404)
+
+    http_client = httpx.Client(transport=httpx.MockTransport(handler))
+    client = ApiClient(base_url="http://test.local", http_client=http_client)
+    try:
+        login = client.login("student_demo", "securepass123")
+        client.set_access_token(login["token"])
+        me = client.me()
+        client.logout()
+    finally:
+        http_client.close()
+
+    assert me["username"] == "student_demo"
+    assert calls[0] == ("POST", "/api/v1/auth/login", None)
+    assert calls[1] == ("GET", "/api/v1/auth/me", "Bearer token-1")
+    assert calls[2] == ("POST", "/api/v1/auth/logout", "Bearer token-1")

@@ -20,6 +20,8 @@ DEFAULTS: dict[str, Any] = {
     "last_intake_response": None,
     "last_user_message": None,
     "last_error": None,
+    "auth_token": None,
+    "auth_user": None,
     "form_initialized": False,
     "debt_count": 1,
     "subscription_count": 0,

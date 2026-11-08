@@ -11,6 +11,8 @@ from riskguard import __version__
 from riskguard.agent import AgentRunner, ChatModel, DeepSeekClient
 from riskguard.agent.chat import ChatOrchestrator
 from riskguard.agent.intake import IntakeNotReady, IntakeService
+from riskguard.api.auth import create_auth_router
+from riskguard.auth import AuthService, AuthServiceError
 from riskguard.agent.schemas import (
     AgentChatRequest,
     AgentChatResponse,
@@ -80,11 +82,13 @@ def create_app(
     conversation_store: ConversationStore | None = None,
     scenario_store: ScenarioStore | None = None,
     education_service: EducationService | None = None,
+    auth_service: AuthService | None = None,
     llm_client: ChatModel | None = None,
 ) -> FastAPI:
     store = session_store if session_store is not None else SessionStore()
     assessment_service = AssessmentService(store)
     model_client = llm_client or DeepSeekClient.from_env()
+    auth = auth_service or AuthService()
     drafts = draft_store if draft_store is not None else DraftStore()
     conversations = (
         conversation_store if conversation_store is not None else ConversationStore()
@@ -134,7 +138,7 @@ def create_app(
         title="StudentRiskGuard API",
         version=__version__,
         description=(
-            "大学生负债压力自检与理性消费科普 Agent。M4 提供匿名会话、"
+            "大学生负债压力自检与理性消费科普 Agent。提供可选账号、匿名会话、"
             "确定性评估工具、受约束智能解读和 API；不提供授信或借贷功能。"
         ),
     )
@@ -149,6 +153,8 @@ def create_app(
     api.state.scenario_service = scenario_service
     api.state.intake_service = intake_service
     api.state.chat_orchestrator = chat_orchestrator
+    api.state.auth_service = auth
+    api.include_router(create_auth_router(auth))
 
     @api.middleware("http")
     async def attach_request_id(request: Request, call_next):
@@ -182,6 +188,15 @@ def create_app(
             status.HTTP_409_CONFLICT,
             "SESSION_EXISTS",
             "该匿名会话已存在，请使用新的会话 ID。",
+        )
+
+    @api.exception_handler(AuthServiceError)
+    async def handle_auth_error(request: Request, exc: AuthServiceError):
+        return _error_response(
+            request,
+            exc.status_code,
+            exc.code,
+            exc.message,
         )
 
     @api.exception_handler(ConversationNotFound)

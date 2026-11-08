@@ -18,7 +18,7 @@
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-当前测试数量：87。
+当前测试数量：97。
 
 ## 本地运行
 
@@ -186,3 +186,22 @@ Streamlit 页面通过 `RISKGUARD_API_URL` 调用 FastAPI，默认地址为：
 ```text
 http://127.0.0.1:8000
 ```
+
+
+## M5.5 账号与认证
+
+新增可选账号模式，同时保留访客模式：
+
+- `POST /api/v1/auth/register`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/logout`
+- `GET /api/v1/auth/me`
+
+认证使用 SQLite，只保存用户名、密码哈希和认证会话，不保存收入、债务、订阅、评估结果或原始聊天文本。Token 只保存在 Streamlit `session_state`，不写入 localStorage。
+
+```powershell
+$env:AUTH_DB_PATH="E:\code_project\RiskAgent\data\auth.db"
+$env:AUTH_TOKEN_TTL_MINUTES="1440"
+```
+
+`data/auth.db` 已被 `.gitignore` 的 `*.db` 规则排除，不要提交。

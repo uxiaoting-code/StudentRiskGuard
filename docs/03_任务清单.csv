@@ -16,10 +16,10 @@ T14,API 接口,P0,计算机,3,4,"T03,T11,T12,T13",src/riskguard/api/,创建会�
 T15,AgentRunner,P0,计算机,4,4,"T13,T14",src/riskguard/agent/runner.py,真实 DeepSeek 工具调用到解释的编排,轨迹包含 run_risk_assessment tool_call,todo
 T16,Prompt 与解释 Schema,P0,计算机,4,4,"T01,T15",src/riskguard/agent/prompts.py; contracts/agent_response.schema.json,系统 Prompt、工具调用 Prompt、解释 JSON,统计方向复核无借贷引导和越权数值,todo
 T17,降级解释,P0,计算机,4,5,"T12,T15",src/riskguard/agent/fallback.py,模型失败时的模板报告,断网/超时仍有计算结果和解释模板,todo
-T18,输入页面,P0,计算机,4,5,"T03,T08",src/riskguard/ui/streamlit_app.py; src/riskguard/ui/components.py,收入表单、分期增删、样本载入,无需登录；错误定位到字段,todo
-T19,结果页面,P0,计算机,5,5,"T12,T18",src/riskguard/ui/,分数、等级、贡献、IRR、现金流,页面数字与工具结果一致,todo
-T20,Agent 轨迹展示,P1,计算机,5,5,"T15,T19",src/riskguard/ui/components.py,工具名、状态、耗时展示,不展示思维链，仅展示工具执行轨迹,todo
-T21,新增分期模拟,P1,计算机,5,6,"T12,T13,T19",src/riskguard/services/scenario_service.py; src/riskguard/ui/,新增分期前后对比,不覆盖原始评估；前后差值与手算一致,todo
+T18,输入页面,P0,计算机,4,5,"T03,T08",src/riskguard/ui/streamlit_app.py; src/riskguard/ui/components.py,收入表单、分期增删、样本载入,无需登录；错误定位到字段,code_complete_pending_manual_ui
+T19,结果页面,P0,计算机,5,5,"T12,T18",src/riskguard/ui/,分数、等级、贡献、IRR、现金流,页面数字与工具结果一致,code_complete_pending_manual_ui
+T20,Agent 轨迹展示,P1,计算机,5,5,"T15,T19",src/riskguard/ui/components.py,工具名、状态、耗时展示,不展示思维链，仅展示工具执行轨迹,code_complete_pending_manual_ui
+T21,新增分期模拟,P1,计算机,5,6,"T12,T13,T19",src/riskguard/services/scenario_service.py; src/riskguard/ui/,新增分期前后对比,不覆盖原始评估；前后差值与手算一致,code_complete_pending_manual_ui
 T22,安全校验,P0,计算机,6,6,"T15,T16",src/riskguard/agent/safety.py; tests/test_safety.py,Schema、禁止意图、边界声明校验,违规输出全部替换为安全模板,todo
 T23,隐私与日志,P0,计算机,6,6,"T11,T14",src/riskguard/services/; src/riskguard/api/,日志脱敏、内存会话清理,日志不含金额/明细；无持久化个人数据,todo
 T24,公开部署,P0,计算机,7,7,"T02,T19",Dockerfile; README.md; HuggingFace 配置,公开可访问链接,另一台设备可完成主流程,todo

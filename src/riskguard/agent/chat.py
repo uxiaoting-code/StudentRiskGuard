@@ -97,13 +97,17 @@ class ChatOrchestrator:
             )
 
         if intent in {"clarification", "assessment_intake"}:
+            # A brand-new chat has a generated UI conversation_id but no
+            # DraftStore record yet. Let IntakeService allocate the first draft
+            # id, and keep using the existing id only for clarification turns.
+            intake_conversation_id = conversation_id if draft is not None else None
             intake = self._intake_service.submit(
                 NaturalLanguageIntakeRequest(
-                    conversation_id=conversation_id,
+                    conversation_id=intake_conversation_id,
                     message=request.message,
                 )
             )
-            self._remember_intake(conversation_id, intake)
+            self._remember_intake(intake.conversation_id, intake)
             return self._from_intake(intake)
 
         if intent == "education":

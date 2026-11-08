@@ -1,6 +1,6 @@
 # StudentRiskGuard
 
-大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层、M4 Agent 工具调用链、M4-A 自然语言录入和 M4-B 科普问答/情景模拟后端；M5 页面闭环尚未实现。
+大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层、M4 Agent 工具调用链、M4-A 自然语言录入和 M4-B 科普问答/情景模拟后端；M5 页面代码已实现，待本地运行验收。
 
 ## 当前状态
 
@@ -10,6 +10,7 @@
 - M3：内存会话、ToolExecutor、确定性评估 API 已完成。
 - M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。\n- M4-A：自然语言抽取、草稿追问、用户确认和现有评估链路接入已完成。
 - M4-B：统一聊天入口、确定性意图路由、科普问答、情景模拟和最小安全校验已完成。
+- M5：智能对话、结构化表单、风险报告、科普卡片、情景模拟和工具轨迹页面已接入。
 
 ## 测试
 
@@ -17,7 +18,7 @@
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-当前测试数量：77。
+当前测试数量：87。
 
 ## 本地运行
 
@@ -157,3 +158,31 @@ python scripts/build_m2_research_report.py `
 - 报告解释模型只接收 `AssessmentResult`，不接收原始自然语言。
 - 原始文本不持久化、不写日志、不写数据库、不写 localStorage。
 - Demo 和测试只使用合成数据。
+
+
+## M5 页面运行
+
+后端：
+
+```powershell
+.\.venv\Scripts\python.exe -m uvicorn riskguard.api.main:app --app-dir src --reload
+```
+
+前端需要安装 Streamlit：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
+streamlit run app.py
+```
+
+页面默认访问：
+
+```text
+http://127.0.0.1:8000
+```
+
+Streamlit 页面通过 `RISKGUARD_API_URL` 调用 FastAPI，默认地址为：
+
+```text
+http://127.0.0.1:8000
+```

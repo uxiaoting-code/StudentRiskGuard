@@ -360,3 +360,23 @@ def test_unsafe_education_answer_falls_back_to_card_content() -> None:
     assert body["status"] == "education_answer"
     assert "借款平台" not in body["reply"]
     assert body["review_status"] == "approved"
+def test_chat_natural_language_description_routes_to_intake() -> None:
+    model = FakeChatModel([intake_response()])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "message": (
+                "我每个月生活费2200，兼职800，购物分期本金4800，"
+                "每月520，还剩10期，名义利率12%。"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "ready_for_confirmation"
+    assert body["conversation_id"]
+    assert body["missing_fields"] == []
+    assert len(model.calls) == 1

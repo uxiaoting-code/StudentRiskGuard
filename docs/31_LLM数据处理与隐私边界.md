@@ -155,3 +155,34 @@ M6 负责补齐完整的违规内容测试集、隐私验收和安全过滤。�
 Demo 只使用合成数据。
 
 该调整不改变“不接征信、不做授信审批、不推荐借贷平台、不把数值计算交给 LLM”的原则。
+
+## 12. M5.5 认证数据例外
+
+M5.5 允许使用 SQLite 保存账号认证数据：
+
+```text
+users
+- id
+- username
+- password_hash
+- created_at
+- consent_version
+
+auth_sessions
+- id
+- user_id
+- token_hash
+- created_at
+- expires_at
+```
+
+该例外仅用于账号和认证会话，不代表允许保存个人财务明细。
+
+认证数据库仍然禁止保存：
+
+- 收入、债务、月供、订阅、存款；
+- AssessmentRequest、AssessmentResult、Explanation；
+- 原始聊天文本；
+- 征信、身份、银行卡或真实账单数据。
+
+登录不是授信、审批、放款或借贷推荐。访客模式继续可用。

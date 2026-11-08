@@ -2,7 +2,7 @@
   "module_id": "M4",
   "status": "technical_pass",
   "tests": {
-    "passed": 87,
+    "passed": 97,
     "failed": 0,
     "warning": "FastAPI TestClient deprecation warning"
   },

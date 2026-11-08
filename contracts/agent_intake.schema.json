@@ -363,7 +363,7 @@
               "anyOf": [
                 {
                   "maximum": 120,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -386,6 +386,18 @@
               ],
               "default": null,
               "title": "Nominal Apr"
+            },
+            "settled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Settled"
             }
           },
           "title": "DebtDraft",
@@ -656,7 +668,7 @@
           "anyOf": [
             {
               "maximum": 120,
-              "minimum": 1,
+              "minimum": 0,
               "type": "integer"
             },
             {
@@ -679,6 +691,18 @@
           ],
           "default": null,
           "title": "Nominal Apr"
+        },
+        "settled": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Settled"
         }
       },
       "title": "DebtDraft",
@@ -927,7 +951,7 @@
               "anyOf": [
                 {
                   "maximum": 120,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -950,6 +974,18 @@
               ],
               "default": null,
               "title": "Nominal Apr"
+            },
+            "settled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Settled"
             }
           },
           "title": "DebtDraft",
@@ -1290,7 +1326,7 @@
               "anyOf": [
                 {
                   "maximum": 120,
-                  "minimum": 1,
+                  "minimum": 0,
                   "type": "integer"
                 },
                 {
@@ -1313,6 +1349,18 @@
               ],
               "default": null,
               "title": "Nominal Apr"
+            },
+            "settled": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "default": null,
+              "title": "Settled"
             }
           },
           "title": "DebtDraft",

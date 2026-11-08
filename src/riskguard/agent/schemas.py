@@ -93,8 +93,9 @@ class DebtDraft(ContractModel):
         default=None, gt=0, le=1_000_000
     )
     monthly_payment: float | None = Field(default=None, gt=0, le=100_000)
-    remaining_periods: int | None = Field(default=None, ge=1, le=120)
+    remaining_periods: int | None = Field(default=None, ge=0, le=120)
     nominal_apr: float | None = Field(default=None, ge=0, le=1)
+    settled: bool | None = None
 
 
 class RecurringSubscriptionDraft(ContractModel):

@@ -486,3 +486,60 @@ def test_debt_can_be_added_after_no_debts_statement() -> None:
     assert response.status == "completed"
     assert len(sessions) == 1
     assert len(drafts) == 0
+def test_settled_debts_and_subscription_do_not_block_assessment() -> None:
+    service, _, sessions, drafts = build_service(
+        [
+            extraction_response(
+                {
+                    "status": "complete",
+                    "draft": {
+                        "income": {
+                            "monthly_disposable_allowance": 2000,
+                            "monthly_part_time_income": 500,
+                        },
+                        "debts": [
+                            {"label": "先用后付1", "monthly_payment": 200, "remaining_periods": 0},
+                            {"label": "先用后付2", "monthly_payment": 55, "remaining_periods": 0},
+                            {"label": "先用后付3", "monthly_payment": 34, "remaining_periods": 0},
+                            {
+                                "label": "追剧平台会员",
+                                "monthly_payment": 15,
+                                "remaining_periods": None,
+                            },
+                        ],
+                        "recurring_subscriptions": [],
+                        "no_debts": False,
+                    },
+                }
+            ),
+            tool_call_response,
+            explanation_response(),
+        ]
+    )
+
+    first = service.submit(
+        NaturalLanguageIntakeRequest(
+            message=(
+                "我每个月生活费2000，兼职收入500，购物平台有三笔先用后付，"
+                "剩余期数为0，还款金额分别为200,55,34，免息。"
+                "有一个追剧平台每月自动续费会员15元。"
+            )
+        )
+    )
+
+    assert first.status == "ready_for_confirmation"
+    assert first.missing_fields == []
+    assert first.preview is not None
+    assert len(first.preview.get("debts", [])) == 3
+    assert all(item["settled"] is True for item in first.preview["debts"])
+    assert first.preview["recurring_subscriptions"] == [
+        {"label": "追剧平台会员", "monthly_cost": 15.0}
+    ]
+
+    response = service.confirm(first.conversation_id)
+
+    assert response.status == "completed"
+    assert response.assessment is not None
+    assert response.assessment.metrics.debt_count == 0
+    assert len(sessions) == 1
+    assert len(drafts) == 0

@@ -188,11 +188,44 @@ def render_agent_response(response: dict[str, Any]) -> None:
 
 
 def render_intake_preview(preview: dict[str, Any] | None) -> None:
-    st.subheader("请确认结构化信息")
+    st.subheader("请确认整理后的信息")
     if not preview:
-        st.info("当前没有可确认的结构化预览。")
+        st.info("当前没有可确认的信息。")
         return
-    st.json(preview)
+
+    income = preview.get("income") or {}
+    st.markdown("**收入**")
+    st.write(
+        f"- 每月生活费：{format_currency(income.get('monthly_disposable_allowance'))}"
+    )
+    st.write(
+        f"- 每月兼职收入：{format_currency(income.get('monthly_part_time_income'))}"
+    )
+
+    debts = preview.get("debts") or []
+    st.markdown("**分期账单**")
+    if not debts:
+        st.write("- 当前没有正在还款的分期。")
+    for index, debt in enumerate(debts, 1):
+        label = debt.get("label") or f"分期 {index}"
+        if debt.get("settled") is True or debt.get("remaining_periods") == 0:
+            st.write(f"- {label}：已结清，不参与本次负债压力计算。")
+        else:
+            st.write(
+                f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
+                f"每月约还 {format_currency(debt.get('monthly_payment'))}，"
+                f"还要还 {debt.get('remaining_periods', '—')} 个月。"
+            )
+
+    subscriptions = preview.get("recurring_subscriptions") or []
+    if subscriptions:
+        st.markdown("**固定订阅支出**")
+        for item in subscriptions:
+            st.write(
+                f"- {item.get('label') or '会员订阅'}："
+                f"每月 {format_currency(item.get('monthly_cost'))}"
+            )
+
     st.caption("确认后才会创建匿名会话并调用确定性评估工具。")
 
 
@@ -261,12 +294,7 @@ def render_scenario(result: dict[str, Any]) -> None:
 def render_chat_response(response: dict[str, Any]) -> None:
     status = response.get("status")
     if status == "needs_more_info":
-        st.warning(response.get("reply", "还需要补充信息。"))
-        missing = response.get("missing_fields", [])
-        if missing:
-            st.write("需要补充：")
-            for item in missing:
-                st.write(f"- {item}")
+        st.warning(response.get("reply", "还需要补充一点信息。"))
         return
 
     if status == "ready_for_confirmation":

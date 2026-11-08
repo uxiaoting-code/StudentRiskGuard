@@ -131,9 +131,11 @@ class IntakeService:
                 warnings=["EXTRACTION_EMPTY"],
             )
 
-        merged_draft = self._merge_drafts(
-            existing.draft if existing is not None else AssessmentDraft(),
-            extraction.draft,
+        merged_draft = self._normalize_draft(
+            self._merge_drafts(
+                existing.draft if existing is not None else AssessmentDraft(),
+                extraction.draft,
+            )
         )
         missing_fields = self._collect_missing_fields(merged_draft)
 
@@ -155,7 +157,7 @@ class IntakeService:
             )
 
         if missing_fields:
-            question = extraction.question or self._build_question(missing_fields)
+            question = self._build_question(missing_fields)
             state = self._save_state(
                 existing=existing,
                 conversation_id=conversation_id,
@@ -350,6 +352,49 @@ class IntakeService:
         )
 
     @staticmethod
+    def _subscription_like(debt: DebtDraft) -> bool:
+        if debt.label is None:
+            return False
+        label = debt.label
+        terms = ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
+        has_subscription_label = any(term in label for term in terms)
+        has_no_principal = debt.remaining_principal is None
+        has_no_active_periods = debt.remaining_periods in (None, 0)
+        return has_subscription_label and has_no_principal and has_no_active_periods
+
+    @classmethod
+    def _normalize_draft(cls, draft: AssessmentDraft) -> AssessmentDraft:
+        debts: list[DebtDraft] | None = None
+        subscriptions = list(draft.recurring_subscriptions or [])
+        if draft.debts is not None:
+            debts = []
+            for debt in draft.debts:
+                if cls._subscription_like(debt):
+                    subscriptions.append(
+                        RecurringSubscriptionDraft(
+                            label=debt.label or "会员订阅",
+                            monthly_cost=debt.monthly_payment,
+                        )
+                    )
+                    continue
+                settled = debt.settled is True or debt.remaining_periods == 0
+                debts.append(debt.model_copy(update={"settled": settled}))
+        return draft.model_copy(
+            update={
+                "debts": debts,
+                "recurring_subscriptions": subscriptions if subscriptions else draft.recurring_subscriptions,
+            }
+        )
+
+    @classmethod
+    def _active_debts(cls, draft: AssessmentDraft) -> list[DebtDraft]:
+        return [
+            debt
+            for debt in (draft.debts or [])
+            if debt.settled is not True and debt.remaining_periods != 0
+        ]
+
+    @staticmethod
     def _merge_income(
         existing: IncomeDraft | None,
         incoming: IncomeDraft | None,
@@ -432,8 +477,8 @@ class IntakeService:
                 merged[target_index] = RecurringSubscriptionDraft.model_validate(data)
         return merged
 
-    @staticmethod
-    def _collect_missing_fields(draft: AssessmentDraft) -> list[str]:
+    @classmethod
+    def _collect_missing_fields(cls, draft: AssessmentDraft) -> list[str]:
         missing: list[str] = []
         if draft.income is None:
             missing.extend(
@@ -448,11 +493,12 @@ class IntakeService:
             if draft.income.monthly_part_time_income is None:
                 missing.append("income.monthly_part_time_income")
 
+        active_debts = cls._active_debts(draft)
         if draft.no_debts is not True:
-            if draft.debts is None or not draft.debts:
+            if draft.debts is None or (not draft.debts and draft.no_debts is not True):
                 missing.append("debts")
             else:
-                for index, debt in enumerate(draft.debts):
+                for index, debt in enumerate(active_debts):
                     for field in (
                         "remaining_principal",
                         "monthly_payment",
@@ -487,22 +533,36 @@ class IntakeService:
 
     @staticmethod
     def _build_question(missing_fields: list[str]) -> str:
-        labels = {
-            "income.monthly_disposable_allowance": "每月稳定生活费",
-            "income.monthly_part_time_income": "每月兼职收入（没有可以填 0）",
-            "debts": "是否有分期负债；如果没有，请明确说“没有分期”",
-            "remaining_principal": "分期剩余本金",
-            "monthly_payment": "每月还款金额",
-            "remaining_periods": "剩余期数",
-            "nominal_apr": "名义利率（不清楚可以说明不清楚）",
-            "label": "订阅名称",
-            "monthly_cost": "订阅每月扣费金额",
-        }
-        human_labels: list[str] = []
+        questions: list[str] = []
         for field in missing_fields:
             tail = field.rsplit(".", 1)[-1]
-            human_labels.append(labels.get(field) or labels.get(tail) or field)
-        return "请补充以下信息：" + "、".join(human_labels[:6]) + "。"
+            if field.startswith("income.monthly_disposable_allowance"):
+                questions.append("你每个月大概有多少生活费？")
+            elif field.startswith("income.monthly_part_time_income"):
+                questions.append("你每个月大概有多少兼职收入？没有的话可以直接说没有。")
+            elif field == "debts":
+                questions.append("你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。")
+            elif tail == "remaining_principal":
+                questions.append("这笔分期现在大概还欠多少钱？")
+            elif tail == "monthly_payment":
+                questions.append("这笔分期每个月大概还多少？")
+            elif tail == "remaining_periods":
+                questions.append("这笔分期还要还几个月？")
+            elif tail == "nominal_apr":
+                questions.append("这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。")
+            elif tail == "label":
+                questions.append("这个订阅或会员叫什么名字？")
+            elif tail == "monthly_cost":
+                questions.append("这个会员每个月大概扣多少钱？")
+            elif field == "income.positive_total":
+                questions.append("请确认一下你每个月的生活费和兼职收入大概是多少。")
+        if not questions:
+            questions.append("请再补充一下这笔账单的还款情况。")
+        unique_questions: list[str] = []
+        for question in questions:
+            if question not in unique_questions:
+                unique_questions.append(question)
+        return "还差一点信息：" + " ".join(unique_questions[:6])
 
     @staticmethod
     def _preview(draft: AssessmentDraft) -> dict[str, Any]:
@@ -523,7 +583,7 @@ class IntakeService:
 
         debts: list[dict[str, Any]] = []
         if draft.no_debts is not True:
-            for index, debt in enumerate(draft.debts or []):
+            for index, debt in enumerate(IntakeService._active_debts(draft)):
                 debts.append(
                     {
                         "id": f"debt_{index + 1}",

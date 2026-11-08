@@ -1,6 +1,6 @@
 {
   "module_id": "M4",
-  "status": "technical_pass_live_llm_pending",
+  "status": "technical_pass",
   "tests": {
     "passed": 77,
     "failed": 0,
@@ -17,24 +17,23 @@
   "tool_name": "run_risk_assessment",
   "fallback_verified": true,
   "session_binding_verified": true,
-  "live_deepseek_tool_call_verified": false,
-  "live_deepseek_reason": "DEEPSEEK_API_KEY not available in current environment",
+  "live_deepseek_tool_call_verified": true,
+  "live_deepseek_reason": "verified with a real DeepSeek API key on 2026-11-08",
   "runtime_http_dependency_declared": true,
+  "live_deepseek_verified_at": "2026-11-08",
   "pending": [
-    "live DeepSeek tool_call verification",
-    "economic statistics Prompt and education-card review",
     "M5 page privacy notice verification",
     "M6 full safety and privacy test suite"
   ],
   "m4a": {
-    "status": "technical_pass_live_llm_pending",
+    "status": "technical_pass",
     "natural_language_intake": true,
     "draft_store_ttl_seconds": 1800,
     "max_clarification_turns": 3,
     "raw_text_persisted": false
   },
   "m4b": {
-    "status": "technical_pass_live_llm_pending",
+    "status": "technical_pass",
     "chat_endpoint": "/api/v1/agent/chat",
     "intent_routes": [
       "assessment_intake",
@@ -50,7 +49,7 @@
       "simulate_new_installment"
     ],
     "education_cards": 10,
-    "education_review_status": "pending",
+    "education_review_status": "approved",
     "conversation_store": "in_memory_ttl",
     "scenario_store": "in_memory_ttl",
     "minimal_safety_guard": true

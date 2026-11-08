@@ -181,7 +181,7 @@ def test_chat_education_answers_from_retrieved_card() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "education_answer"
-    assert body["review_status"] == "pending"
+    assert body["review_status"] == "approved"
     assert body["education"]["topic_ids"] == ["irr_real_cost"]
     assert body["tool_activity"][0]["tool"] == "retrieve_education_topic"
     assert "IRR" in body["reply"]
@@ -359,4 +359,4 @@ def test_unsafe_education_answer_falls_back_to_card_content() -> None:
     body = response.json()
     assert body["status"] == "education_answer"
     assert "借款平台" not in body["reply"]
-    assert body["review_status"] == "pending"
+    assert body["review_status"] == "approved"

@@ -253,10 +253,18 @@
           "type": "integer"
         },
         "nominal_apr": {
-          "maximum": 1,
-          "minimum": 0,
-          "title": "Nominal Apr",
-          "type": "number"
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal Apr"
         }
       },
       "required": [
@@ -264,8 +272,7 @@
         "label",
         "remaining_principal",
         "monthly_payment",
-        "remaining_periods",
-        "nominal_apr"
+        "remaining_periods"
       ],
       "title": "Debt",
       "type": "object"

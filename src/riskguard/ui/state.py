@@ -58,6 +58,7 @@ def _ensure_debt_keys(count: int) -> None:
         "payment": 300.0,
         "periods": 10,
         "apr": 0.12,
+        "apr_unknown": False,
     }
     for index in range(count):
         for field, value in defaults.items():
@@ -100,7 +101,11 @@ def apply_request_to_form(request: dict[str, Any]) -> None:
         st.session_state[f"debt_{index}_periods"] = int(
             debt.get("remaining_periods", 1)
         )
-        st.session_state[f"debt_{index}_apr"] = float(debt.get("nominal_apr", 0))
+        nominal_apr = debt.get("nominal_apr")
+        st.session_state[f"debt_{index}_apr_unknown"] = nominal_apr is None
+        st.session_state[f"debt_{index}_apr"] = float(
+            nominal_apr if nominal_apr is not None else 0.12
+        )
 
     subscriptions = request.get("recurring_subscriptions", []) or []
     st.session_state["subscription_count"] = len(subscriptions)

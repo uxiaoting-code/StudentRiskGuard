@@ -54,6 +54,19 @@ def test_chat_memory_expires_and_deletes() -> None:
     store.append("conv-2", role="user", content="删除内容")
     store.delete("conv-2")
     assert not store.get_optional("conv-2")
+
+
+def test_chat_memory_append_purges_unrelated_expired_conversations() -> None:
+    clock = FakeClock()
+    store = ChatMemoryStore(ttl_seconds=30, max_messages=4, clock=clock)
+    store.append("conv-old", role="user", content="过期原文")
+    clock.advance(31)
+
+    store.append("conv-new", role="user", content="新原文")
+
+    assert store.get_optional("conv-old") is None
+    assert store.get_optional("conv-new") is not None
+    assert len(store) == 1
 def test_chat_memory_configuration_has_finite_bounds() -> None:
     for kwargs in (
         {"ttl_seconds": 0, "max_messages": 8},

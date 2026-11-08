@@ -129,6 +129,7 @@ Shared contract changes require review from both owners.
 
 - Currency: CNY.
 - Rates are decimals, for example 12% is `0.12`.
+- Unknown nominal APR is represented as `null`, never as zero. IRR is computed from principal, payment and periods.
 - `monthly_disposable_allowance` means stable living money after necessary expenses.
 - Do not add identity, credit, account, or platform-account fields.
 - Reject negative amounts, zero total income, invalid periods, and malformed debt records.
@@ -146,5 +147,5 @@ A task is complete only when:
 
 ## Current state
 
-At handoff time, this repository contains the business plan and development documents, but not the application code yet. The first implementation task should follow the dependency order in `docs/03_任务清单.csv`.
+The repository contains the complete M0-M5.6 implementation and automated tests. M5 manual page review, education-card economic signoff and real DeepSeek re-verification remain pending. Education cards stay `pending` until a card-specific signoff record exists.
 

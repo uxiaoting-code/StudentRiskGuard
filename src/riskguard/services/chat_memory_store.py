@@ -59,11 +59,9 @@ class ChatMemoryStore:
     def get_optional(self, conversation_id: str) -> ChatMemoryState | None:
         now = self._now()
         with self._lock:
+            self._purge_expired_locked(now)
             state = self._states.get(conversation_id)
             if state is None:
-                return None
-            if state.expires_at <= now:
-                self._states.pop(conversation_id, None)
                 return None
             return state
 
@@ -81,8 +79,9 @@ class ChatMemoryStore:
     ) -> ChatMemoryState:
         now = self._now()
         with self._lock:
+            self._purge_expired_locked(now)
             current = self._states.get(conversation_id)
-            if current is None or current.expires_at <= now:
+            if current is None:
                 current = ChatMemoryState(
                     conversation_id=conversation_id,
                     messages=[],
@@ -127,4 +126,5 @@ class ChatMemoryStore:
 
     def __len__(self) -> int:
         with self._lock:
+            self._purge_expired_locked(self._now())
             return len(self._states)

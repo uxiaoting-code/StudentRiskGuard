@@ -211,10 +211,17 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
         if debt.get("settled") is True or debt.get("remaining_periods") == 0:
             st.write(f"- {label}：已结清，不参与本次负债压力计算。")
         else:
+            nominal_apr = debt.get("nominal_apr")
+            rate_text = (
+                "名义利率未知，真实成本解释受限"
+                if nominal_apr is None
+                else f"名义利率 {format_rate(nominal_apr)}"
+            )
             st.write(
                 f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
                 f"每月约还 {format_currency(debt.get('monthly_payment'))}，"
-                f"还要还 {debt.get('remaining_periods', '—')} 个月。"
+                f"还要还 {debt.get('remaining_periods', '—')} 个月；"
+                f"{rate_text}。"
             )
 
     subscriptions = preview.get("recurring_subscriptions") or []
@@ -236,6 +243,11 @@ def render_education_answer(response: dict[str, Any]) -> None:
     topic_ids = education.get("topic_ids", [])
     if topic_ids:
         st.caption("主题：" + "、".join(str(item) for item in topic_ids))
+    sources = education.get("source_excerpts", [])
+    if sources:
+        with st.expander("内容来源"):
+            for source in sources:
+                st.write(f"- {source}")
     st.caption(
         "内容审核状态："
         + format_review_status(

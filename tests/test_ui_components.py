@@ -9,12 +9,26 @@ class FakeStreamlit:
     def __init__(self) -> None:
         self.warnings: list[str] = []
         self.captions: list[str] = []
+        self.writes: list[str] = []
+        self.infos: list[str] = []
 
     def warning(self, message: str) -> None:
         self.warnings.append(message)
 
     def caption(self, message: str) -> None:
         self.captions.append(message)
+
+    def write(self, message: str) -> None:
+        self.writes.append(str(message))
+
+    def markdown(self, message: str) -> None:
+        self.writes.append(str(message))
+
+    def info(self, message: str) -> None:
+        self.infos.append(message)
+
+    def subheader(self, message: str) -> None:
+        self.writes.append(str(message))
 
 
 def _render(response: dict[str, Any], monkeypatch) -> FakeStreamlit:
@@ -67,3 +81,30 @@ def test_clarification_limit_ui_offers_friendly_fallback(monkeypatch) -> None:
     assert "结构化表单" in visible
     assert "8/8" in visible
     assert "debts[0]" not in visible
+
+
+def test_unknown_apr_preview_is_not_rendered_as_zero(monkeypatch) -> None:
+    fake = FakeStreamlit()
+    monkeypatch.setattr(components, "st", fake)
+
+    components.render_intake_preview(
+        {
+            "income": {
+                "monthly_disposable_allowance": 2000,
+                "monthly_part_time_income": 500,
+            },
+            "debts": [
+                {
+                    "label": "花呗",
+                    "remaining_principal": 1000,
+                    "monthly_payment": 100,
+                    "remaining_periods": 10,
+                }
+            ],
+        }
+    )
+
+    visible = "\n".join(fake.writes + fake.captions)
+    assert "名义利率未知" in visible
+    assert "真实成本解释受限" in visible
+    assert "0.00%" not in visible

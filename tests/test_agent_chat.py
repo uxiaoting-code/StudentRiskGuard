@@ -7,8 +7,8 @@ from typing import Any
 from fastapi.testclient import TestClient
 
 from riskguard.api.main import create_app
-from riskguard.models import AssessmentRequest, FIXED_BOUNDARY_NOTICE
-from riskguard.services import ConversationStore, SessionStore
+from riskguard.models import AssessmentRequest, FIXED_BOUNDARY_NOTICE, ScenarioDraft
+from riskguard.services import ConversationStore, ScenarioNotFound, SessionStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -101,10 +101,9 @@ def education_response() -> dict[str, Any]:
                 "message": {
                     "content": json.dumps(
                         {
-                            "answer": "IRR帮助理解分期还款时间与金额共同形成的真实资金成本。",
-                            "topic_ids": ["irr_real_cost"],
-                            "boundary_notice": FIXED_BOUNDARY_NOTICE,
-                            "review_status": "pending",
+                            "topic_id": "irr_real_cost",
+                            "key_point_indices": [1],
+                            "action_indices": [1],
                         },
                         ensure_ascii=False,
                     )
@@ -132,6 +131,33 @@ def scenario_response() -> dict[str, Any]:
                             "missing_fields": [],
                             "warnings": [],
                             "question": None,
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def partial_scenario_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "status": "needs_more_info",
+                            "scenario": {
+                                "label": "新手机",
+                                "remaining_principal": 2400,
+                            },
+                            "missing_fields": [
+                                "monthly_payment",
+                                "remaining_periods",
+                            ],
+                            "warnings": [],
+                            "question": "每月还多少，还要还几个月？",
                         },
                         ensure_ascii=False,
                     )
@@ -181,10 +207,12 @@ def test_chat_education_answers_from_retrieved_card() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "education_answer"
-    assert body["review_status"] == "approved"
+    assert body["review_status"] == "pending"
     assert body["education"]["topic_ids"] == ["irr_real_cost"]
+    assert body["education"]["source_excerpts"]
     assert body["tool_activity"][0]["tool"] == "retrieve_education_topic"
     assert "IRR" in body["reply"]
+    assert all(item in body["reply"] for item in body["education"]["source_excerpts"])
     assert len(model.calls) == 1
 
 
@@ -225,6 +253,117 @@ def test_chat_scenario_uses_tool_and_does_not_mutate_session() -> None:
     assert body["tool_activity"][0]["tool"] == "simulate_new_installment"
     assert len(sessions.get("chat-demo").request.debts) == original_count
     assert len(model.calls) == 1
+
+
+def test_chat_scenario_keeps_partial_draft_across_turns() -> None:
+    model = FakeChatModel([partial_scenario_response(), scenario_response()])
+    api, _, conversations = api_with_session(model)
+
+    first = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔手机分期，本金2400，会怎样？",
+        },
+    ).json()
+    second = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "每月还300，还要还8期，利率不知道。",
+        },
+    ).json()
+
+    assert first["status"] == "needs_more_info"
+    assert first["preview"]["remaining_principal"] == 2400
+    assert second["status"] == "completed"
+    assert second["scenario"]["monthly_payment_delta"] == 300
+    state = conversations.get("conv-chat")
+    assert state.active_task is None
+    assert state.active_scenario_id is None
+    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
+    assert second_prompt["previous_question"] == "每月还多少，还要还几个月？"
+    assert second_prompt["existing_scenario"]["remaining_principal"] == 2400
+
+
+def test_chat_maps_scenario_store_errors_to_structured_response() -> None:
+    model = FakeChatModel([scenario_response()])
+    api, _, _ = api_with_session(model)
+    original_execute = api.app.state.tool_executor.execute
+
+    def execute(tool_name, arguments):
+        if tool_name == "simulate_new_installment":
+            raise ScenarioNotFound("missing")
+        return original_execute(tool_name, arguments)
+
+    api.app.state.tool_executor.execute = execute
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔分期，本金2400，每月300，8期，利率12%，会怎样？",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "error"
+    assert response.json()["error"]["code"] == "SCENARIO_NOT_FOUND"
+
+
+def test_scenario_clarification_limit_stops_before_model(monkeypatch) -> None:
+    monkeypatch.setenv("MAX_CLARIFICATION_TURNS", "1")
+    model = FakeChatModel([partial_scenario_response(), partial_scenario_response()])
+    api, _, conversations = api_with_session(model)
+
+    first = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔手机分期，本金2400，会怎样？",
+        },
+    ).json()
+    second = api.post(
+        "/api/v1/agent/chat",
+        json={"conversation_id": "conv-chat", "message": "每月还300。"},
+    ).json()
+    third = api.post(
+        "/api/v1/agent/chat",
+        json={"conversation_id": "conv-chat", "message": "还要还8期。"},
+    ).json()
+
+    assert first["clarification_turns"] == 0
+    assert second["status"] == "needs_more_info"
+    assert second["clarification_turns"] == 1
+    assert third["status"] == "clarification_limit"
+    assert third["clarification_turns"] == 1
+    assert len(model.calls) == 2
+    state = conversations.get("conv-chat")
+    assert state.active_task == "scenario"
+    assert state.active_scenario_id is not None
+
+
+def test_explicit_out_of_scope_stays_blocked_during_scenario_clarification() -> None:
+    model = FakeChatModel([partial_scenario_response()])
+    api, _, conversations = api_with_session(model)
+    api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "如果我新增一笔手机分期，本金2400，会怎样？",
+        },
+    )
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": "conv-chat",
+            "message": "推荐一个借款平台，哪家通过率高？",
+        },
+    ).json()
+
+    assert response["status"] == "out_of_scope"
+    assert len(model.calls) == 1
+    assert conversations.get("conv-chat").active_task == "scenario"
 
 
 def test_chat_out_of_scope_never_recommends_a_lender() -> None:
@@ -348,7 +487,7 @@ def test_scenario_without_session_asks_for_assessment_first() -> None:
 def test_unsafe_education_answer_falls_back_to_card_content() -> None:
     unsafe = education_response()
     payload = json.loads(unsafe["choices"][0]["message"]["content"])
-    payload["answer"] = "推荐一个借款平台来解决当前问题。"
+    payload["key_point_indices"] = [99]
     unsafe["choices"][0]["message"]["content"] = json.dumps(payload, ensure_ascii=False)
     model = FakeChatModel([unsafe])
     api = TestClient(create_app(llm_client=model))
@@ -358,8 +497,9 @@ def test_unsafe_education_answer_falls_back_to_card_content() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "education_answer"
-    assert "借款平台" not in body["reply"]
-    assert body["review_status"] == "approved"
+    assert body["reply"]
+    assert body["review_status"] == "pending"
+    assert body["education"]["source_excerpts"]
 def test_chat_natural_language_description_routes_to_intake() -> None:
     model = FakeChatModel([intake_response()])
     api = TestClient(create_app(llm_client=model))
@@ -470,6 +610,26 @@ def test_delete_conversation_clears_chat_memory_and_structured_context() -> None
     assert deleted.status_code == 204
     assert app.state.chat_memory_store.get_optional(conversation_id) is None
     assert app.state.conversation_store.get_optional(conversation_id) is None
+
+
+def test_delete_conversation_cascades_to_session_and_scenarios() -> None:
+    model = FakeChatModel([])
+    api, sessions, conversations = api_with_session(model)
+    scenarios = api.app.state.scenario_store
+    scenarios.create(
+        "sc-conv-chat",
+        ScenarioDraft(label="新手机", remaining_principal=2400),
+        conversation_id="conv-chat",
+        session_id="chat-demo",
+        missing_fields=["monthly_payment", "remaining_periods"],
+    )
+
+    deleted = api.delete("/api/v1/agent/conversations/conv-chat")
+
+    assert deleted.status_code == 204
+    assert conversations.get_optional("conv-chat") is None
+    assert len(sessions) == 0
+    assert len(scenarios) == 0
 def test_chat_clarification_limit_returns_friendly_exit_without_model_call(monkeypatch) -> None:
     monkeypatch.setenv("MAX_CLARIFICATION_TURNS", "1")
     model = FakeChatModel([partial_intake_response(), partial_intake_response()])

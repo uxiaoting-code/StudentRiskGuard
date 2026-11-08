@@ -39,6 +39,8 @@ class ConversationState(ContractModel):
         pattern=r"^[A-Za-z0-9_-]+$",
     )
     session_id: str | None = Field(default=None, min_length=1, max_length=64)
+    active_task: Literal["intake", "scenario"] | None = None
+    active_scenario_id: str | None = Field(default=None, min_length=1, max_length=64)
     current_intent: str | None = None
     last_topic: str | None = None
     last_assessment_id: str | None = None

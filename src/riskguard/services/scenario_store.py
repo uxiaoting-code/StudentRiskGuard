@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Callable
@@ -25,7 +25,13 @@ class ScenarioExpired(ScenarioStoreError):
 @dataclass(frozen=True)
 class ScenarioRecord:
     scenario_id: str
+    conversation_id: str
+    session_id: str
     scenario: ScenarioDraft
+    missing_fields: tuple[str, ...]
+    pending_question: str | None
+    clarification_turns: int
+    status: str
     created_at: datetime
     expires_at: datetime
 
@@ -60,20 +66,65 @@ class ScenarioStore:
             self._scenarios.pop(scenario_id, None)
         return len(expired)
 
-    def create(self, scenario_id: str, scenario: ScenarioDraft) -> ScenarioRecord:
+    def create(
+        self,
+        scenario_id: str,
+        scenario: ScenarioDraft,
+        *,
+        conversation_id: str = "",
+        session_id: str = "",
+        missing_fields: list[str] | None = None,
+        pending_question: str | None = None,
+        clarification_turns: int = 0,
+    ) -> ScenarioRecord:
         now = self._now()
+        missing = tuple(missing_fields or [])
         with self._lock:
             self._purge_expired_locked(now)
             if scenario_id in self._scenarios:
                 raise ValueError(f"scenario already exists: {scenario_id}")
             record = ScenarioRecord(
                 scenario_id=scenario_id,
+                conversation_id=conversation_id,
+                session_id=session_id,
                 scenario=scenario,
+                missing_fields=missing,
+                pending_question=pending_question,
+                clarification_turns=clarification_turns,
+                status="ready" if not missing else "draft",
                 created_at=now,
                 expires_at=now + self._ttl,
             )
             self._scenarios[scenario_id] = record
             return record
+
+    def update(
+        self,
+        scenario_id: str,
+        scenario: ScenarioDraft,
+        *,
+        missing_fields: list[str],
+        pending_question: str | None,
+        clarification_turns: int,
+    ) -> ScenarioRecord:
+        now = self._now()
+        with self._lock:
+            self._purge_expired_locked(now)
+            current = self._scenarios.get(scenario_id)
+            if current is None:
+                raise ScenarioNotFound(scenario_id)
+            missing = tuple(missing_fields)
+            updated = replace(
+                current,
+                scenario=scenario,
+                missing_fields=missing,
+                pending_question=pending_question,
+                clarification_turns=clarification_turns,
+                status="ready" if not missing else "draft",
+                expires_at=now + self._ttl,
+            )
+            self._scenarios[scenario_id] = updated
+            return updated
 
     def get(self, scenario_id: str) -> ScenarioRecord:
         now = self._now()
@@ -91,6 +142,21 @@ class ScenarioStore:
             if scenario_id not in self._scenarios:
                 raise ScenarioNotFound(scenario_id)
             self._scenarios.pop(scenario_id, None)
+
+    def delete_by_conversation(self, conversation_id: str) -> int:
+        with self._lock:
+            scenario_ids = [
+                scenario_id
+                for scenario_id, record in self._scenarios.items()
+                if record.conversation_id == conversation_id
+            ]
+            for scenario_id in scenario_ids:
+                self._scenarios.pop(scenario_id, None)
+            return len(scenario_ids)
+
+    def purge_expired(self) -> int:
+        with self._lock:
+            return self._purge_expired_locked(self._now())
 
     def __len__(self) -> int:
         with self._lock:

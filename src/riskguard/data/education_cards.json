@@ -15,7 +15,7 @@
       "不承诺降低债务或保证还款成功"
     ],
     "keywords": ["低月供", "总成本", "期限", "分期成本"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "irr_real_cost",
@@ -33,7 +33,7 @@
       "不推荐借贷或投资产品"
     ],
     "keywords": ["irr", "真实年化", "年化成本", "利率", "名义利率"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "installment_cashflow",
@@ -51,7 +51,7 @@
       "不保证分期可以解决现金流问题"
     ],
     "keywords": ["分期期限", "现金流", "月供", "固定收入"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "debt_stacking",
@@ -69,7 +69,7 @@
       "不推荐通过新增借款缓解旧债"
     ],
     "keywords": ["多笔", "叠加", "小额分期", "月供合计"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "subscription_renewal",
@@ -87,7 +87,7 @@
       "不承诺取消订阅一定可以解决债务"
     ],
     "keywords": ["订阅", "会员", "自动续费", "连续包月"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "savings_buffer",
@@ -105,7 +105,7 @@
       "不推荐具体理财产品"
     ],
     "keywords": ["存款", "缓冲", "应急", "现金缺口"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "part_time_income_volatility",
@@ -123,7 +123,7 @@
       "不推荐用借贷应对收入波动"
     ],
     "keywords": ["兼职", "收入波动", "收入下降", "不稳定"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "borrow_to_repay",
@@ -142,7 +142,7 @@
       "不保证可以消除债务"
     ],
     "keywords": ["以贷养贷", "借新还旧", "周转", "旧债"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "budget_and_consumption",
@@ -160,7 +160,7 @@
       "不承诺预算一定可以解决债务"
     ],
     "keywords": ["预算", "理性消费", "消费", "支出"],
-    "review_status": "approved"
+    "review_status": "pending"
   },
   {
     "topic_id": "support_and_communication",
@@ -178,6 +178,6 @@
       "不承诺沟通一定可以获得资金支持"
     ],
     "keywords": ["家人", "沟通", "学校", "支持", "求助"],
-    "review_status": "approved"
+    "review_status": "pending"
   }
 ]

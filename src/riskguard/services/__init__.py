@@ -15,6 +15,7 @@ from riskguard.services.draft_store import (
     DraftStoreError,
     DraftTurnLimit,
 )
+from riskguard.services.retention import ExpiringStore, RetentionSweeper
 from riskguard.services.scenario_store import (
     ScenarioExpired,
     ScenarioNotFound,
@@ -42,6 +43,8 @@ __all__ = [
     "DraftStore",
     "DraftStoreError",
     "DraftTurnLimit",
+    "ExpiringStore",
+    "RetentionSweeper",
     "ScenarioExpired",
     "ScenarioNotFound",
     "ScenarioRecord",

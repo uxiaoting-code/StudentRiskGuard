@@ -155,6 +155,13 @@
           "title": "Tool Activity",
           "type": "array"
         },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
         "review_status": {
           "anyOf": [
             {
@@ -421,6 +428,36 @@
           "default": null,
           "title": "Session Id"
         },
+        "active_task": {
+          "anyOf": [
+            {
+              "enum": [
+                "intake",
+                "scenario"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Task"
+        },
+        "active_scenario_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Scenario Id"
+        },
         "current_intent": {
           "anyOf": [
             {
@@ -529,6 +566,15 @@
           "title": "Answer",
           "type": "string"
         },
+        "source_excerpts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Source Excerpts",
+          "type": "array"
+        },
         "topic_ids": {
           "items": {
             "type": "string"
@@ -555,6 +601,7 @@
       },
       "required": [
         "answer",
+        "source_excerpts",
         "topic_ids"
       ],
       "title": "EducationAnswer",

@@ -7,7 +7,7 @@ from uuid import uuid4
 
 from riskguard.agent.deepseek import ChatModel
 from riskguard.agent.intake import IntakeNotReady, IntakeService
-from riskguard.agent.intents import classify_intent
+from riskguard.agent.intents import classify_intent, is_out_of_scope_message
 from riskguard.agent.runner import AgentRunner
 from riskguard.agent.schemas import (
     AgentChatRequest,
@@ -26,10 +26,16 @@ from riskguard.services import (
     DraftExpired,
     DraftNotFound,
     DraftStore,
+    ScenarioExpired,
+    ScenarioNotFound,
     ScenarioStore,
 )
 from riskguard.services.education_service import EducationService
-from riskguard.services.scenario_service import ScenarioService
+from riskguard.services.scenario_service import (
+    ScenarioDebtLimit,
+    ScenarioNotReady,
+    ScenarioService,
+)
 from riskguard.tools import (
     RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
     SIMULATE_NEW_INSTALLMENT_TOOL_NAME,
@@ -106,6 +112,7 @@ class ChatOrchestrator:
             )
 
         draft = self._get_draft(conversation_id)
+        active_scenario = self._get_active_scenario(conversation_id, conversation)
         memory = self._memory_store.get_optional(conversation_id)
         previous_question = None
         if draft is not None:
@@ -113,11 +120,33 @@ class ChatOrchestrator:
                 draft.pending_question
                 or ChatMemoryStore.last_assistant_message(memory)
             )
+        elif active_scenario is not None:
+            previous_question = active_scenario.pending_question
         intent = classify_intent(
             request.message,
             has_draft=draft is not None,
             has_session=conversation is not None and conversation.session_id is not None,
         )
+        explicit_out_of_scope = is_out_of_scope_message(request.message)
+        if (
+            not explicit_out_of_scope
+            and conversation is not None
+            and conversation.active_task == "scenario"
+        ):
+            if active_scenario is None:
+                self._conversation_store.update(
+                    conversation_id,
+                    clear_active_task=True,
+                    clear_active_scenario=True,
+                )
+            else:
+                intent = "scenario_simulation"
+        elif (
+            not explicit_out_of_scope
+            and draft is not None
+            and intent not in {"clarification", "assessment_intake"}
+        ):
+            intent = "clarification"
 
         if intent == "out_of_scope":
             self._remember(
@@ -268,13 +297,71 @@ class ChatOrchestrator:
         session_id: str,
         message: str,
     ) -> AgentChatResponse:
-        extraction, scenario_id = self._scenario_service.extract_and_stage(message)
-        if extraction.status == "needs_more_info" or extraction.missing_fields:
+        conversation = self._conversation_store.get(conversation_id)
+        existing_scenario = self._get_active_scenario(conversation_id, conversation)
+        if (
+            existing_scenario is not None
+            and existing_scenario.clarification_turns
+            >= self._scenario_service.max_clarification_turns
+        ):
             self._remember(
                 conversation_id,
                 current_intent="scenario_simulation",
+                active_task="scenario",
+                active_scenario_id=existing_scenario.scenario_id,
+                last_answer_type="clarification_limit",
+                clarification_turns=existing_scenario.clarification_turns,
+                pending_question=existing_scenario.pending_question,
+            )
+            return AgentChatResponse(
+                conversation_id=conversation_id,
+                status="clarification_limit",
+                reply=(
+                    "我已经记录了你目前提供的情景信息。为了避免反复追问，"
+                    "你可以改用结构化表单继续补充，或者点击重新开始。"
+                ),
+                missing_fields=list(existing_scenario.missing_fields),
+                clarification_turns=existing_scenario.clarification_turns,
+                max_clarification_turns=self._scenario_service.max_clarification_turns,
+                remaining_clarification_turns=0,
+                preview=existing_scenario.scenario.model_dump(
+                    mode="json",
+                    exclude_none=True,
+                ),
+                warnings=["MAX_CLARIFICATION_TURNS_REACHED"],
+            )
+
+        extraction, scenario_id = self._scenario_service.extract_and_stage(
+            message,
+            conversation_id=conversation_id,
+            session_id=session_id,
+            existing_scenario=(
+                existing_scenario.scenario if existing_scenario is not None else None
+            ),
+            existing_scenario_id=(
+                existing_scenario.scenario_id if existing_scenario is not None else None
+            ),
+            clarification_turns=(
+                existing_scenario.clarification_turns
+                if existing_scenario is not None
+                else 0
+            ),
+            previous_question=(
+                existing_scenario.pending_question
+                if existing_scenario is not None
+                else None
+            ),
+        )
+        if extraction.status == "needs_more_info" or extraction.missing_fields:
+            record = self._scenario_store.get(scenario_id) if scenario_id else None
+            turns = record.clarification_turns if record is not None else 0
+            self._remember(
+                conversation_id,
+                current_intent="scenario_simulation",
+                active_task="scenario",
+                active_scenario_id=scenario_id,
                 last_answer_type="needs_more_info",
-                clarification_turns=1,
+                clarification_turns=turns,
                 pending_question=extraction.question,
             )
             return AgentChatResponse(
@@ -282,6 +369,18 @@ class ChatOrchestrator:
                 status="needs_more_info",
                 reply=extraction.question or "请补充新增分期的本金、月供、期数和利率。",
                 missing_fields=extraction.missing_fields,
+                clarification_turns=turns,
+                max_clarification_turns=self._scenario_service.max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0,
+                    self._scenario_service.max_clarification_turns - turns,
+                ),
+                preview=(
+                    record.scenario.model_dump(mode="json", exclude_none=True)
+                    if record is not None
+                    else None
+                ),
+                warnings=extraction.warnings,
             )
         if extraction.status == "invalid" or scenario_id is None:
             return self._error(
@@ -295,6 +394,33 @@ class ChatOrchestrator:
             scenario = self._tool_executor.execute(
                 SIMULATE_NEW_INSTALLMENT_TOOL_NAME,
                 {"session_id": session_id, "scenario_id": scenario_id},
+            )
+        except ScenarioNotFound:
+            self._clear_active_scenario(conversation_id)
+            return self._error(
+                conversation_id,
+                "情景数据不存在或已经清理，请重新描述这笔新增分期。",
+                "SCENARIO_NOT_FOUND",
+            )
+        except ScenarioExpired:
+            self._clear_active_scenario(conversation_id)
+            return self._error(
+                conversation_id,
+                "情景数据已过期，请重新描述这笔新增分期。",
+                "SCENARIO_EXPIRED",
+            )
+        except ScenarioNotReady:
+            return self._error(
+                conversation_id,
+                "新增分期信息还没有补全，请继续补充本金、月供和期数。",
+                "SCENARIO_NOT_READY",
+            )
+        except ScenarioDebtLimit:
+            self._clear_active_scenario(conversation_id)
+            return self._error(
+                conversation_id,
+                "当前会话已经有 20 笔债务，无法再加入第 21 笔情景。",
+                "SCENARIO_DEBT_LIMIT",
             )
         except (ToolArgumentError, ToolNotFound):
             return self._error(
@@ -316,6 +442,8 @@ class ChatOrchestrator:
             last_tool=SIMULATE_NEW_INSTALLMENT_TOOL_NAME,
             last_assessment_id=scenario.scenario_assessment.assessment_id,
             last_answer_type="scenario",
+            clear_active_task=True,
+            clear_active_scenario=True,
         )
         return AgentChatResponse(
             conversation_id=conversation_id,
@@ -341,6 +469,7 @@ class ChatOrchestrator:
                 clarification_turns=intake.clarification_turns,
                 max_clarification_turns=intake.max_clarification_turns,
                 remaining_clarification_turns=intake.remaining_clarification_turns,
+                warnings=intake.warnings,
                 error=AgentError(code="INTAKE_INVALID", message=intake.reply),
             )
         return AgentChatResponse(
@@ -352,6 +481,7 @@ class ChatOrchestrator:
             max_clarification_turns=intake.max_clarification_turns,
             remaining_clarification_turns=intake.remaining_clarification_turns,
             preview=intake.preview,
+            warnings=intake.warnings,
         )
 
     def _ask_for_assessment(self, conversation_id: str) -> AgentChatResponse:
@@ -394,6 +524,13 @@ class ChatOrchestrator:
             last_answer_type=intake.status,
             clarification_turns=intake.clarification_turns,
             pending_question=intake.reply if intake.status == "needs_more_info" else None,
+            active_task=(
+                "intake"
+                if intake.status
+                in {"needs_more_info", "ready_for_confirmation", "clarification_limit"}
+                else None
+            ),
+            clear_active_scenario=True,
         )
 
     def _remember(
@@ -401,6 +538,10 @@ class ChatOrchestrator:
         conversation_id: str,
         *,
         current_intent: str,
+        active_task: str | None = None,
+        active_scenario_id: str | None = None,
+        clear_active_task: bool = False,
+        clear_active_scenario: bool = False,
         last_topic: str | None = None,
         last_assessment_id: str | None = None,
         last_tool: str | None = None,
@@ -413,6 +554,10 @@ class ChatOrchestrator:
             self._conversation_store.update(
                 conversation_id,
                 current_intent=current_intent,
+                active_task=active_task,
+                active_scenario_id=active_scenario_id,
+                clear_active_task=clear_active_task,
+                clear_active_scenario=clear_active_scenario,
                 last_topic=last_topic,
                 last_assessment_id=last_assessment_id,
                 last_tool=last_tool,
@@ -424,9 +569,13 @@ class ChatOrchestrator:
             self._conversation_store.create(
                 conversation_id=conversation_id,
                 current_intent=current_intent,
+                active_task=active_task,
+                active_scenario_id=active_scenario_id,
             )
             self._conversation_store.update(
                 conversation_id,
+                clear_active_task=clear_active_task,
+                clear_active_scenario=clear_active_scenario,
                 last_topic=last_topic,
                 last_assessment_id=last_assessment_id,
                 last_tool=last_tool,
@@ -440,6 +589,29 @@ class ChatOrchestrator:
             return self._draft_store.get(conversation_id)
         except (DraftNotFound, DraftExpired):
             return None
+
+    def _get_active_scenario(self, conversation_id: str, conversation):
+        if conversation is None or conversation.active_scenario_id is None:
+            return None
+        try:
+            return self._scenario_store.get(conversation.active_scenario_id)
+        except (ScenarioNotFound, ScenarioExpired):
+            self._conversation_store.update(
+                conversation_id,
+                clear_active_task=True,
+                clear_active_scenario=True,
+            )
+            return None
+
+    def _clear_active_scenario(self, conversation_id: str) -> None:
+        try:
+            self._conversation_store.update(
+                conversation_id,
+                clear_active_task=True,
+                clear_active_scenario=True,
+            )
+        except (ConversationNotFound, ConversationExpired):
+            pass
 
     @staticmethod
     def _new_conversation_id() -> str:

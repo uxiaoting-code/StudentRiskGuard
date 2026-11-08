@@ -62,6 +62,8 @@ class ConversationStore:
         conversation_id: str,
         session_id: str | None = None,
         current_intent: str | None = None,
+        active_task: str | None = None,
+        active_scenario_id: str | None = None,
     ) -> ConversationState:
         now = self._now()
         with self._lock:
@@ -72,6 +74,8 @@ class ConversationStore:
                 conversation_id=conversation_id,
                 session_id=session_id,
                 current_intent=current_intent,  # type: ignore[arg-type]
+                active_task=active_task,  # type: ignore[arg-type]
+                active_scenario_id=active_scenario_id,
                 created_at=now,
                 expires_at=now + self._ttl,
             )
@@ -103,6 +107,10 @@ class ConversationStore:
         *,
         session_id: str | None = None,
         current_intent: str | None = None,
+        active_task: str | None = None,
+        active_scenario_id: str | None = None,
+        clear_active_task: bool = False,
+        clear_active_scenario: bool = False,
         last_topic: str | None = None,
         last_assessment_id: str | None = None,
         last_tool: str | None = None,
@@ -125,6 +133,14 @@ class ConversationStore:
                 "pending_question": pending_question,
                 "expires_at": now + self._ttl,
             }
+            if clear_active_task:
+                updates["active_task"] = None
+            elif active_task is not None:
+                updates["active_task"] = active_task
+            if clear_active_scenario:
+                updates["active_scenario_id"] = None
+            elif active_scenario_id is not None:
+                updates["active_scenario_id"] = active_scenario_id
             for field_name, value in (
                 ("session_id", session_id),
                 ("current_intent", current_intent),

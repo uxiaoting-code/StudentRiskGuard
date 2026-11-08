@@ -698,7 +698,6 @@ def test_known_fields_are_not_asked_again_and_new_named_debt_is_appended() -> No
                         "label": "花呗",
                         "remaining_principal": 1000,
                         "monthly_payment": 300,
-                        "remaining_periods": 5,
                     }
                 ],
                 "no_debts": False,
@@ -740,3 +739,27 @@ def test_known_fields_are_not_asked_again_and_new_named_debt_is_appended() -> No
     second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
     assert second_prompt["previous_question"] == first.reply
     assert second_prompt["existing_draft"]["income"]["monthly_disposable_allowance"] == 2000
+
+
+def test_unknown_nominal_apr_can_complete_and_is_not_treated_as_zero() -> None:
+    draft = json.loads(json.dumps(FULL_DRAFT, ensure_ascii=False))
+    draft["debts"][0].pop("nominal_apr")
+    service, _, sessions, _ = build_service(
+        [
+            extraction_response({"draft": draft}),
+            tool_call_response,
+            explanation_response(),
+        ]
+    )
+
+    response = service.submit(
+        NaturalLanguageIntakeRequest(message="利率不知道，其他信息都有。")
+    )
+
+    assert response.status == "ready_for_confirmation"
+    assert "nominal_apr" not in response.preview["debts"][0]
+
+    confirmed = service.confirm(response.conversation_id)
+    assert confirmed.assessment is not None
+    assert any("名义利率未知" in warning for warning in confirmed.assessment.warnings)
+    assert len(sessions) == 1

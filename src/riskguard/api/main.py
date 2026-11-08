@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import os
+from contextlib import asynccontextmanager
 from uuid import uuid4
 
 from fastapi import FastAPI, Request, Response, status
@@ -42,6 +45,9 @@ from riskguard.services import (
     DraftNotFound,
     DraftStore,
     DraftTurnLimit,
+    RetentionSweeper,
+    ScenarioExpired,
+    ScenarioNotFound,
     ScenarioStore,
     SessionAlreadyExists,
     SessionExpired,
@@ -49,7 +55,11 @@ from riskguard.services import (
     SessionStore,
 )
 from riskguard.services.education_service import EducationService
-from riskguard.services.scenario_service import ScenarioService
+from riskguard.services.scenario_service import (
+    ScenarioDebtLimit,
+    ScenarioNotReady,
+    ScenarioService,
+)
 from riskguard.tools import (
     RUN_RISK_ASSESSMENT_TOOL_NAME,
     TOOL_DEFINITIONS,
@@ -137,6 +147,21 @@ def create_app(
         llm_client=model_client,
         chat_memory_store=chat_memory,
     )
+    retention = RetentionSweeper(
+        (store, drafts, conversations, scenarios, chat_memory),
+        interval_seconds=int(os.getenv("RETENTION_SWEEP_SECONDS", "60")),
+    )
+
+    @asynccontextmanager
+    async def lifespan(_: FastAPI):
+        stop_event = asyncio.Event()
+        task = asyncio.create_task(retention.run_forever(stop_event))
+        try:
+            yield
+        finally:
+            stop_event.set()
+            await task
+            retention.purge_once()
 
     api = FastAPI(
         title="StudentRiskGuard API",
@@ -145,6 +170,7 @@ def create_app(
             "大学生负债压力自检与理性消费科普 Agent。提供可选账号、匿名会话、"
             "确定性评估工具、受约束智能解读和 API；不提供授信或借贷功能。"
         ),
+        lifespan=lifespan,
     )
     api.state.session_store = store
     api.state.assessment_service = assessment_service
@@ -159,6 +185,7 @@ def create_app(
     api.state.chat_orchestrator = chat_orchestrator
     api.state.auth_service = auth
     api.state.chat_memory_store = chat_memory
+    api.state.retention_sweeper = retention
     api.include_router(create_auth_router(auth))
 
     @api.middleware("http")
@@ -249,6 +276,42 @@ def create_app(
             "自然语言补充次数过多，请改用结构化表单或重新开始。",
         )
 
+    @api.exception_handler(ScenarioNotFound)
+    async def handle_scenario_not_found(request: Request, exc: ScenarioNotFound):
+        return _error_response(
+            request,
+            status.HTTP_404_NOT_FOUND,
+            "SCENARIO_NOT_FOUND",
+            "情景数据不存在或已经清理，请重新描述。",
+        )
+
+    @api.exception_handler(ScenarioExpired)
+    async def handle_scenario_expired(request: Request, exc: ScenarioExpired):
+        return _error_response(
+            request,
+            status.HTTP_410_GONE,
+            "SCENARIO_EXPIRED",
+            "情景数据已过期，请重新描述。",
+        )
+
+    @api.exception_handler(ScenarioNotReady)
+    async def handle_scenario_not_ready(request: Request, exc: ScenarioNotReady):
+        return _error_response(
+            request,
+            status.HTTP_409_CONFLICT,
+            "SCENARIO_NOT_READY",
+            "新增分期信息尚未补全。",
+        )
+
+    @api.exception_handler(ScenarioDebtLimit)
+    async def handle_scenario_debt_limit(request: Request, exc: ScenarioDebtLimit):
+        return _error_response(
+            request,
+            status.HTTP_409_CONFLICT,
+            "SCENARIO_DEBT_LIMIT",
+            "当前会话最多支持 20 笔债务，无法加入第 21 笔情景。",
+        )
+
     @api.exception_handler(IntakeNotReady)
     async def handle_intake_not_ready(request: Request, exc: IntakeNotReady):
         return _error_response(
@@ -330,7 +393,10 @@ def create_app(
         tags=["agent"],
     )
     def delete_conversation(conversation_id: str) -> Response:
+        conversation = conversations.get_optional(conversation_id)
+        session_id = conversation.session_id if conversation is not None else None
         chat_memory.delete(conversation_id)
+        scenarios.delete_by_conversation(conversation_id)
         try:
             drafts.delete(conversation_id)
         except DraftNotFound:
@@ -339,6 +405,11 @@ def create_app(
             conversations.delete(conversation_id)
         except ConversationNotFound:
             pass
+        if session_id is not None:
+            try:
+                store.delete(session_id)
+            except SessionNotFound:
+                pass
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @api.post(

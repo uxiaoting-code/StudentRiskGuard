@@ -42,7 +42,18 @@ def test_conversation_contract_uses_bounded_turn_and_memory_metadata() -> None:
 
     assert "last_tool" in properties
     assert "pending_question" in properties
+    assert "active_task" in properties
+    assert "active_scenario_id" in properties
     assert properties["clarification_turns"]["maximum"] == 50
+
+
+def test_education_contract_requires_verbatim_source_excerpts() -> None:
+    chat_contract = _load("agent_chat.schema.json")
+    education = chat_contract["$defs"]["EducationAnswer"]
+
+    assert "source_excerpts" in education["properties"]
+    assert "source_excerpts" in education["required"]
+    assert education["properties"]["source_excerpts"]["minItems"] == 1
 
 
 def test_clarification_limit_response_is_valid_contract_data() -> None:

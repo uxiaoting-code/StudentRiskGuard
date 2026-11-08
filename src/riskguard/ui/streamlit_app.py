@@ -199,23 +199,25 @@ def _build_form_request() -> dict:
     debt_count = int(st.session_state.get("debt_count", 0))
     debts: list[dict] = []
     for index in range(debt_count):
-        debts.append(
-            {
-                "id": f"debt_{index + 1}",
-                "label": str(st.session_state.get(f"debt_{index}_label", "")).strip()
-                or f"分期{index + 1}",
-                "remaining_principal": float(
-                    st.session_state.get(f"debt_{index}_principal", 0)
-                ),
-                "monthly_payment": float(
-                    st.session_state.get(f"debt_{index}_payment", 0)
-                ),
-                "remaining_periods": int(
-                    st.session_state.get(f"debt_{index}_periods", 1)
-                ),
-                "nominal_apr": float(st.session_state.get(f"debt_{index}_apr", 0)),
-            }
-        )
+        debt = {
+            "id": f"debt_{index + 1}",
+            "label": str(st.session_state.get(f"debt_{index}_label", "")).strip()
+            or f"分期{index + 1}",
+            "remaining_principal": float(
+                st.session_state.get(f"debt_{index}_principal", 0)
+            ),
+            "monthly_payment": float(
+                st.session_state.get(f"debt_{index}_payment", 0)
+            ),
+            "remaining_periods": int(
+                st.session_state.get(f"debt_{index}_periods", 1)
+            ),
+        }
+        if not st.session_state.get(f"debt_{index}_apr_unknown", False):
+            debt["nominal_apr"] = float(
+                st.session_state.get(f"debt_{index}_apr", 0)
+            )
+        debts.append(debt)
 
     subscription_count = int(st.session_state.get("subscription_count", 0))
     subscriptions: list[dict] = []
@@ -343,6 +345,10 @@ def _render_structured_tab(client: ApiClient) -> None:
                         step=50.0,
                         key=f"debt_{index}_payment",
                     )
+                    apr_unknown = st.checkbox(
+                        "名义利率未知",
+                        key=f"debt_{index}_apr_unknown",
+                    )
                     st.number_input(
                         "名义年利率",
                         min_value=0.0,
@@ -350,6 +356,8 @@ def _render_structured_tab(client: ApiClient) -> None:
                         step=0.01,
                         format="%.2f",
                         key=f"debt_{index}_apr",
+                        disabled=apr_unknown,
+                        help="未知利率不会被当作 0%；勾选后不提交该字段。",
                     )
 
         with st.expander("存款与订阅", expanded=False):

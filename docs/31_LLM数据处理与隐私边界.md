@@ -197,8 +197,10 @@ M5.6 允许原始聊天文本短暂保存在进程内 `ChatMemoryStore`，作为
 - 默认 TTL 1800 秒，可通过 `CHAT_MEMORY_TTL_SECONDS` 配置，范围 1-86400；
 - 默认最多 8 条消息，可通过 `CHAT_MEMORY_MAX_MESSAGES` 配置，范围 1-10；
 - 超出上限删除最旧消息；
+- 默认每 60 秒执行一次后台清理，可通过 `RETENTION_SWEEP_SECONDS` 配置，范围 1-3600；
+- 原文在内存中的最长残留约为 TTL 加一个清理周期；
 - 不写 SQLite、CSV、日志、数据库或 localStorage；
-- 删除会话、过期或用户重新开始后清理；
+- 删除 conversation 时级联清理关联 session、scenario、draft、conversation 和 memory；
 - 不把完整历史发送给任何 LLM；
 - 信息抽取只发送当前消息、结构化草稿和上一轮未回答的问题；
 - 报告解释模型仍只接收 `AssessmentResult`。

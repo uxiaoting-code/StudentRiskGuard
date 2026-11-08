@@ -47,7 +47,9 @@ class Debt(ContractModel):
     remaining_principal: float = Field(gt=0, le=1_000_000)
     monthly_payment: float = Field(gt=0, le=100_000)
     remaining_periods: int = Field(ge=1, le=120)
-    nominal_apr: float = Field(ge=0, le=1)
+    # This field is reference data only. IRR is solved from cash flows, so an
+    # unknown contractual rate must not block an otherwise complete assessment.
+    nominal_apr: float | None = Field(default=None, ge=0, le=1)
 
 
 class RecurringSubscription(ContractModel):

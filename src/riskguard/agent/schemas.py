@@ -122,8 +122,17 @@ class EducationCard(ContractModel):
     review_status: ReviewStatus = "pending"
 
 
+class EducationSelection(ContractModel):
+    """Model output is limited to selecting reviewed card source items."""
+
+    topic_id: str = Field(min_length=1)
+    key_point_indices: list[int] = Field(min_length=1, max_length=2)
+    action_indices: list[int] = Field(default_factory=list, max_length=1)
+
+
 class EducationAnswer(ContractModel):
     answer: str = Field(min_length=1, max_length=1200)
+    source_excerpts: list[str] = Field(min_length=1, max_length=3)
     topic_ids: list[str] = Field(min_length=1)
     boundary_notice: Literal[
         "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。"
@@ -165,5 +174,6 @@ class AgentChatResponse(ContractModel):
     education: EducationAnswer | None = None
     scenario: ScenarioSimulationResult | None = None
     tool_activity: list[ToolActivity] = Field(default_factory=list)
+    warnings: list[str] = Field(default_factory=list)
     review_status: ReviewStatus | None = None
     error: AgentError | None = None

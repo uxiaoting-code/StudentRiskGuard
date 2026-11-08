@@ -292,18 +292,23 @@ class IntakeService:
                 last_assessment_id=assessment_id,
                 last_tool="run_risk_assessment",
                 last_answer_type="assessment",
+                clear_active_task=True,
+                clear_active_scenario=True,
             )
         except (ConversationNotFound, ConversationExpired):
             self._conversation_store.create(
                 conversation_id=conversation_id,
                 session_id=session_id,
                 current_intent="risk_explanation",
+                active_task=None,
             )
             self._conversation_store.update(
                 conversation_id,
                 last_assessment_id=assessment_id,
                 last_tool="run_risk_assessment",
                 last_answer_type="assessment",
+                clear_active_task=True,
+                clear_active_scenario=True,
             )
 
     def _extract(
@@ -570,7 +575,6 @@ class IntakeService:
                         "remaining_principal",
                         "monthly_payment",
                         "remaining_periods",
-                        "nominal_apr",
                     ):
                         if getattr(debt, field) is None:
                             missing.append(f"debts[{index}].{field}")
@@ -615,8 +619,6 @@ class IntakeService:
                 questions.append("这笔分期每个月大概还多少？")
             elif tail == "remaining_periods":
                 questions.append("这笔分期还要还几个月？")
-            elif tail == "nominal_apr":
-                questions.append("这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。")
             elif tail == "label":
                 questions.append("这个订阅或会员叫什么名字？")
             elif tail == "monthly_cost":

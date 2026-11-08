@@ -16,6 +16,7 @@ from riskguard.models.api import (
     SessionCreateResponse,
     SessionMetadata,
 )
+from riskguard.models.memory import ChatMemoryState, ConversationState, MemoryMessage, ScenarioDraft
 from riskguard.models.assessment import (
     AssessmentAssumptions,
     AssessmentMetrics,
@@ -43,14 +44,18 @@ __all__ = [
     "AssessmentResult",
     "BehaviorProfile",
     "CashflowPoint",
+    "ChatMemoryState",
+    "ConversationState",
     "Debt",
     "Explanation",
     "HealthResponse",
     "Income",
+    "MemoryMessage",
     "IrrResult",
     "RecurringSubscription",
     "RiskAssessment",
     "RiskDimension",
+    "ScenarioDraft",
     "RiskSource",
     "RunAssessmentRequest",
     "SessionCreateResponse",

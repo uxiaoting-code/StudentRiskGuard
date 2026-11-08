@@ -34,3 +34,7 @@ T32,M5.5账号认证,P0,计算机,6,7,T31,src/riskguard/auth/; data/.gitkeep,用
 T33,M5.5账号认证,P0,计算机,6,7,"T31,T32",src/riskguard/api/auth.py; src/riskguard/api/main.py,注册、登录、退出、/me API,API测试通过；错误码和token过期正确,code_complete_pending_manual_auth
 T34,M5.5账号认证,P0,计算机,7,7,T33,src/riskguard/ui/api_client.py; src/riskguard/ui/streamlit_app.py,登录注册和访客模式页面,访客可用；注册登录退出可用,code_complete_pending_manual_ui
 T35,M5.5账号认证,P0,共同,7,7,"T31,T32,T33,T34",tests/; docs/,认证安全、隐私和回归测试,原有测试通过；认证数据库无财务明细,code_complete_pending_manual_review
+T36,M5.6有界追问,P0,计算机,7,7,T30,src/riskguard/agent/intake.py; src/riskguard/services/draft_store.py; tests/test_agent_intake.py,首次输入不计轮、默认8轮补充、环境变量上限和友好退路,首次输入为0轮；8次补充可用；达到上限后不调用LLM并保留草稿,code_complete_pending_review
+T37,M5.6上下文记忆,P0,计算机,7,7,T36,src/riskguard/models/memory.py; src/riskguard/services/chat_memory_store.py; src/riskguard/services/conversation_store.py; tests/test_chat_memory_store.py,进程内存ChatMemoryStore、TTL、消息上限和结构化上下文元数据,TTL过期清理；最多有限消息；删除会话双清理；不写数据库、CSV、日志或localStorage,code_complete_pending_review
+T38,M5.6对话接入,P0,计算机,7,7,T37,src/riskguard/agent/chat.py; src/riskguard/agent/prompts.py; src/riskguard/api/main.py; src/riskguard/ui/; tests/test_agent_chat.py; tests/test_ui_components.py,统一对话接入有界记忆、剩余轮数展示、删除会话接口和上限退路,最近问题可用于澄清；完整历史不发送给LLM；UI不展示内部字段；原有表单和评估链路通过,code_complete_pending_manual_ui
+T39,M5.6契约与审计,P0,共同,7,7,"T36,T37,T38",contracts/; docs/; tests/,M5.6 Schema、接口/Prompt/隐私文档和审计记录,契约新增轮数字段；文档说明默认值和边界；全量测试通过；无自动提交或推送,code_complete_pending_manual_review

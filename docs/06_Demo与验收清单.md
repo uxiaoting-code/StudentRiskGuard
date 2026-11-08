@@ -205,3 +205,20 @@
 - [ ] 认证数据库不包含收入、债务、订阅或评估结果；
 - [ ] 页面和日志不显示密码或 token；
 - [ ] 原有 97 项测试仍然通过。
+## 13. M5.6 有界追问与上下文记忆验收
+
+- [ ] 首次个人描述返回 `clarification_turns=0`，不占追问轮数。
+- [ ] 首次输入后可以连续补充 8 轮；每轮 `needs_more_info` 使用一轮。
+- [ ] 第 9 次补充返回 `clarification_limit`，不调用 LLM、不创建正式评估会话、不覆盖草稿。
+- [ ] 上限提示包含“结构化表单”和“重新开始”。
+- [ ] 多轮补充不会重复询问已知生活费、收入、分期字段。
+- [ ] “那再补一个”能使用上一轮问题和结构化草稿理解指代。
+- [ ] 已结清负债不进入正式 `AssessmentRequest.debts`。
+- [ ] 订阅进入 `recurring_subscriptions`，不进入 `debts`。
+- [ ] 页面显示当前 conversation ID、已使用轮数和剩余轮数。
+- [ ] 页面只显示友好 `reply`，不显示 `debts[0]`、`remaining_periods` 等内部字段。
+- [ ] ChatMemoryStore 默认 TTL 1800 秒、最多 8 条消息，过期和删除后不可恢复。
+- [ ] 删除会话后 ChatMemoryStore 与 ConversationStore 都被清理。
+- [ ] 报告模型只接收 `AssessmentResult`；任何模型都不接收完整聊天历史。
+- [ ] 认证数据库只保存账号和认证会话，不保存聊天记忆或财务明细。
+- [ ] 原有表单、`/api/v1/agent/assess`、科普、风险解释和情景模拟回归通过。

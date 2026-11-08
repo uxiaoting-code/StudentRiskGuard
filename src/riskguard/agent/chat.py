@@ -19,6 +19,7 @@ from riskguard.agent.schemas import (
 )
 from riskguard.models import AgentError, ToolActivity
 from riskguard.services import (
+    ChatMemoryStore,
     ConversationExpired,
     ConversationNotFound,
     ConversationStore,
@@ -53,6 +54,7 @@ class ChatOrchestrator:
         education_service: EducationService,
         scenario_service: ScenarioService,
         llm_client: ChatModel,
+        chat_memory_store: ChatMemoryStore | None = None,
     ) -> None:
         self._conversation_store = conversation_store
         self._draft_store = draft_store
@@ -63,8 +65,37 @@ class ChatOrchestrator:
         self._education_service = education_service
         self._scenario_service = scenario_service
         self._llm_client = llm_client
+        self._memory_store = (
+            chat_memory_store
+            if chat_memory_store is not None
+            else ChatMemoryStore()
+        )
 
     def chat(self, request: AgentChatRequest) -> AgentChatResponse:
+        response = self._chat_impl(request)
+        conversation = self._conversation_store.get_optional(response.conversation_id)
+        if conversation is None:
+            return response
+        self._memory_store.append(
+            response.conversation_id,
+            role="user",
+            content=request.message,
+        )
+        self._memory_store.append(
+            response.conversation_id,
+            role="assistant",
+            content=response.reply,
+            intent=conversation.current_intent if conversation else None,
+            topic=conversation.last_topic if conversation else None,
+            assessment_id=(
+                conversation.last_assessment_id if conversation else None
+            ),
+            answer_type=response.status,
+            tool=conversation.last_tool if conversation else None,
+        )
+        return response
+
+    def _chat_impl(self, request: AgentChatRequest) -> AgentChatResponse:
         conversation_id = request.conversation_id or self._new_conversation_id()
         conversation = self._conversation_store.get_optional(conversation_id)
         if request.conversation_id is not None and conversation is None:
@@ -75,6 +106,13 @@ class ChatOrchestrator:
             )
 
         draft = self._get_draft(conversation_id)
+        memory = self._memory_store.get_optional(conversation_id)
+        previous_question = None
+        if draft is not None:
+            previous_question = (
+                draft.pending_question
+                or ChatMemoryStore.last_assistant_message(memory)
+            )
         intent = classify_intent(
             request.message,
             has_draft=draft is not None,
@@ -105,7 +143,8 @@ class ChatOrchestrator:
                 NaturalLanguageIntakeRequest(
                     conversation_id=intake_conversation_id,
                     message=request.message,
-                )
+                ),
+                previous_question=previous_question,
             )
             self._remember_intake(intake.conversation_id, intake)
             return self._from_intake(intake)
@@ -299,6 +338,9 @@ class ChatOrchestrator:
                 status="error",
                 reply=intake.reply,
                 missing_fields=intake.missing_fields,
+                clarification_turns=intake.clarification_turns,
+                max_clarification_turns=intake.max_clarification_turns,
+                remaining_clarification_turns=intake.remaining_clarification_turns,
                 error=AgentError(code="INTAKE_INVALID", message=intake.reply),
             )
         return AgentChatResponse(
@@ -306,6 +348,9 @@ class ChatOrchestrator:
             status=intake.status,
             reply=intake.reply,
             missing_fields=intake.missing_fields,
+            clarification_turns=intake.clarification_turns,
+            max_clarification_turns=intake.max_clarification_turns,
+            remaining_clarification_turns=intake.remaining_clarification_turns,
             preview=intake.preview,
         )
 
@@ -343,14 +388,11 @@ class ChatOrchestrator:
             conversation_id,
             current_intent=(
                 "clarification"
-                if intake.status == "needs_more_info"
+                if intake.status in {"needs_more_info", "clarification_limit"}
                 else "assessment_intake"
             ),
             last_answer_type=intake.status,
-            clarification_turns=(
-                3 if intake.status == "invalid" and intake.warnings and
-                "MAX_CLARIFICATION_TURNS_REACHED" in intake.warnings else 1
-            ),
+            clarification_turns=intake.clarification_turns,
             pending_question=intake.reply if intake.status == "needs_more_info" else None,
         )
 

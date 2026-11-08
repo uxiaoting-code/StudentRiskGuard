@@ -1,6 +1,7 @@
 """Application services."""
 
 from riskguard.services.assessment_service import AssessmentService
+from riskguard.services.chat_memory_store import ChatMemoryStore
 from riskguard.services.conversation_store import (
     ConversationExpired,
     ConversationNotFound,
@@ -31,6 +32,7 @@ from riskguard.services.session_store import (
 
 __all__ = [
     "AssessmentService",
+    "ChatMemoryStore",
     "ConversationExpired",
     "ConversationNotFound",
     "ConversationStore",

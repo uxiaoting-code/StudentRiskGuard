@@ -7,7 +7,7 @@ from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Callable
 
-from riskguard.agent.schemas import ScenarioDraft
+from riskguard.models.memory import ScenarioDraft
 
 
 class ScenarioStoreError(Exception):

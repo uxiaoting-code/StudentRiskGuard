@@ -47,6 +47,12 @@ def _render_header() -> None:
 
 
 def _clear_ui_state(client: ApiClient) -> None:
+    conversation_id = st.session_state.get("conversation_id")
+    if conversation_id:
+        try:
+            client.delete_conversation(conversation_id)
+        except ApiClientError:
+            pass
     session_id = st.session_state.get("session_id")
     if session_id:
         try:
@@ -486,6 +492,10 @@ def _render_chat_tab(client: ApiClient) -> None:
         if response.get("status") == "ready_for_confirmation":
             if st.button("确认并开始评估", key="confirm_chat"):
                 _confirm_chat_intake(client)
+        elif response.get("status") == "clarification_limit":
+            st.caption("可切换到上方“结构化表单自检”标签页继续，或重新开始对话。")
+            if st.button("重新开始对话", key="restart_after_limit"):
+                _clear_ui_state(client)
 
     if (
         st.session_state.get("last_agent_response")

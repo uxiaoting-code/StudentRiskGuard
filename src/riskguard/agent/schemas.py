@@ -18,6 +18,16 @@ from riskguard.models.agent import (
     FIXED_BOUNDARY_NOTICE,
     ToolActivity,
 )
+from riskguard.models.memory import (
+    AssessmentDraft,
+    DebtDraft,
+    DraftState,
+    ExtractionResult,
+    ExtractionStatus,
+    IncomeDraft,
+    RecurringSubscriptionDraft,
+    ScenarioDraft,
+)
 from riskguard.models.assessment import (
     AssessmentRequest,
     AssessmentResult,
@@ -27,7 +37,12 @@ from riskguard.models.assessment import (
 )
 
 ExtractionStatus = Literal["complete", "needs_more_info", "invalid"]
-IntakeStatus = Literal["needs_more_info", "ready_for_confirmation", "invalid"]
+IntakeStatus = Literal[
+    "needs_more_info",
+    "ready_for_confirmation",
+    "clarification_limit",
+    "invalid",
+]
 IntentName = Literal[
     "assessment_intake",
     "clarification",
@@ -42,6 +57,7 @@ ChatStatus = Literal[
     "education_answer",
     "completed",
     "out_of_scope",
+    "clarification_limit",
     "error",
 ]
 ReviewStatus = Literal["pending", "approved"]
@@ -75,64 +91,6 @@ class ConfirmIntakeRequest(ContractModel):
     """Optional user-corrected request used when confirming a draft."""
 
     assessment_request: AssessmentRequest | None = None
-
-
-class IncomeDraft(ContractModel):
-    monthly_disposable_allowance: float | None = Field(
-        default=None, ge=0, le=1_000_000
-    )
-    monthly_part_time_income: float | None = Field(
-        default=None, ge=0, le=1_000_000
-    )
-
-
-class DebtDraft(ContractModel):
-    id: str | None = Field(default=None, min_length=1, max_length=32)
-    label: str | None = Field(default=None, min_length=1, max_length=30)
-    remaining_principal: float | None = Field(
-        default=None, gt=0, le=1_000_000
-    )
-    monthly_payment: float | None = Field(default=None, gt=0, le=100_000)
-    remaining_periods: int | None = Field(default=None, ge=0, le=120)
-    nominal_apr: float | None = Field(default=None, ge=0, le=1)
-    settled: bool | None = None
-
-
-class RecurringSubscriptionDraft(ContractModel):
-    label: str | None = Field(default=None, min_length=1)
-    monthly_cost: float | None = Field(default=None, gt=0)
-
-
-class AssessmentDraft(ContractModel):
-    """Partial assessment data that can be completed over several turns."""
-
-    income: IncomeDraft | None = None
-    # None means "not mentioned yet"; an empty list is only unambiguous when
-    # no_debts=True. This lets the intake layer ask before assuming no debt.
-    debts: list[DebtDraft] | None = None
-    no_debts: bool | None = None
-    savings_balance: float | None = Field(default=None, ge=0)
-    recurring_subscriptions: list[RecurringSubscriptionDraft] | None = None
-    behavior: BehaviorProfile | None = None
-    forecast_months: int | None = Field(default=None, ge=1, le=36)
-
-
-class ExtractionResult(ContractModel):
-    status: ExtractionStatus
-    draft: AssessmentDraft | None = None
-    missing_fields: list[str] = Field(default_factory=list)
-    warnings: list[str] = Field(default_factory=list)
-    question: str | None = Field(default=None, max_length=500)
-
-
-class ScenarioDraft(ContractModel):
-    label: str | None = Field(default=None, min_length=1, max_length=30)
-    remaining_principal: float | None = Field(
-        default=None, gt=0, le=1_000_000
-    )
-    monthly_payment: float | None = Field(default=None, gt=0, le=100_000)
-    remaining_periods: int | None = Field(default=None, ge=1, le=120)
-    nominal_apr: float | None = Field(default=None, ge=0, le=1)
 
 
 class ScenarioExtractionResult(ContractModel):
@@ -173,39 +131,6 @@ class EducationAnswer(ContractModel):
     review_status: ReviewStatus = "pending"
 
 
-class ConversationState(ContractModel):
-    conversation_id: str = Field(
-        min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9_-]+$",
-    )
-    session_id: str | None = Field(default=None, min_length=1, max_length=64)
-    current_intent: IntentName | None = None
-    last_topic: str | None = None
-    last_assessment_id: str | None = None
-    last_tool: str | None = None
-    last_answer_type: str | None = None
-    clarification_turns: int = Field(default=0, ge=0, le=3)
-    pending_question: str | None = Field(default=None, max_length=500)
-    created_at: datetime
-    expires_at: datetime
-
-
-class DraftState(ContractModel):
-    conversation_id: str = Field(
-        min_length=1,
-        max_length=64,
-        pattern=r"^[A-Za-z0-9_-]+$",
-    )
-    draft: AssessmentDraft
-    missing_fields: list[str] = Field(default_factory=list)
-    pending_question: str | None = Field(default=None, max_length=500)
-    clarification_turns: int = Field(default=1, ge=1, le=3)
-    confirmed: bool = False
-    created_at: datetime
-    expires_at: datetime
-
-
 class IntakeResponse(ContractModel):
     conversation_id: str = Field(
         min_length=1,
@@ -215,6 +140,9 @@ class IntakeResponse(ContractModel):
     status: IntakeStatus
     reply: str = Field(min_length=1)
     missing_fields: list[str] = Field(default_factory=list)
+    clarification_turns: int = Field(default=0, ge=0, le=50)
+    max_clarification_turns: int = Field(default=8, ge=1, le=50)
+    remaining_clarification_turns: int = Field(default=8, ge=0, le=50)
     preview: dict[str, Any] | None = None
     warnings: list[str] = Field(default_factory=list)
 
@@ -228,6 +156,9 @@ class AgentChatResponse(ContractModel):
     status: ChatStatus
     reply: str = Field(min_length=1)
     missing_fields: list[str] = Field(default_factory=list)
+    clarification_turns: int = Field(default=0, ge=0, le=50)
+    max_clarification_turns: int = Field(default=8, ge=1, le=50)
+    remaining_clarification_turns: int = Field(default=8, ge=0, le=50)
     preview: dict[str, Any] | None = None
     assessment: AssessmentResult | None = None
     explanation: Explanation | None = None

@@ -8,11 +8,8 @@ from uuid import uuid4
 
 from riskguard.agent.deepseek import ChatModel
 from riskguard.agent.prompts import build_scenario_extraction_messages
-from riskguard.agent.schemas import (
-    ScenarioDraft,
-    ScenarioExtractionResult,
-    ScenarioSimulationResult,
-)
+from riskguard.agent.schemas import ScenarioExtractionResult, ScenarioSimulationResult
+from riskguard.models.memory import ScenarioDraft
 from riskguard.models import AssessmentRequest, Debt
 from riskguard.services import AssessmentService, ScenarioStore, SessionStore
 

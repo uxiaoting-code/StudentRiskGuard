@@ -9,7 +9,7 @@ from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Callable
 
-from riskguard.agent.schemas import ConversationState
+from riskguard.models.memory import ConversationState
 
 
 class ConversationStoreError(Exception):
@@ -118,19 +118,24 @@ class ConversationStore:
             if current.expires_at <= now:
                 self._states.pop(conversation_id, None)
                 raise ConversationExpired(conversation_id)
-            updates = {
-                "current_intent": current_intent,
-                "last_topic": last_topic,
-                "last_assessment_id": last_assessment_id,
-                "last_tool": last_tool,
-                "last_answer_type": last_answer_type,
+            # Only overwrite optional context when the caller provides a value.
+            # pending_question is always assigned so a completed turn can clear
+            # the previous question deterministically.
+            updates: dict[str, object] = {
                 "pending_question": pending_question,
                 "expires_at": now + self._ttl,
             }
-            if session_id is not None:
-                updates["session_id"] = session_id
-            if clarification_turns is not None:
-                updates["clarification_turns"] = clarification_turns
+            for field_name, value in (
+                ("session_id", session_id),
+                ("current_intent", current_intent),
+                ("last_topic", last_topic),
+                ("last_assessment_id", last_assessment_id),
+                ("last_tool", last_tool),
+                ("last_answer_type", last_answer_type),
+                ("clarification_turns", clarification_turns),
+            ):
+                if value is not None:
+                    updates[field_name] = value
             updated = current.model_copy(update=updates)
             self._states[conversation_id] = updated
             return updated

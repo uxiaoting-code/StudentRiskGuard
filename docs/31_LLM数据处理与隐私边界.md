@@ -18,6 +18,7 @@ StudentRiskGuard 是面向在校大学生的负债压力自检与金融教育工
 
 - 用户当前轮自然语言消息；
 - 当前已有的结构化 AssessmentDraft；
+- 上一轮尚未回答的问题；
 - ExtractionResult 和 AssessmentRequest Schema；
 - 必要的 Prompt 规则。
 
@@ -35,6 +36,7 @@ StudentRiskGuard 是面向在校大学生的负债压力自检与金融教育工
 只允许接收：
 
 - 用户当前轮关于新增分期的描述；
+- 当前结构化会话状态；
 - ScenarioExtractionResult Schema；
 - 必要的 Prompt 规则。
 
@@ -65,7 +67,7 @@ StudentRiskGuard 是面向在校大学生的负债压力自检与金融教育工
 - API Key、系统 Prompt；
 - 借贷平台、具体品牌或信贷审批请求。
 
-原始用户文本不得写入：
+除 `ChatMemoryStore` 的短期有界进程内存外，原始用户文本不得写入：
 
 - DraftStore；
 - ConversationStore；
@@ -74,18 +76,20 @@ StudentRiskGuard 是面向在校大学生的负债压力自检与金融教育工
 - 数据库；
 - CSV；
 - 浏览器 localStorage；
-- AssessmentRequest 或 AssessmentResult。
+- AssessmentRequest 或 AssessmentResult；
+- 认证 SQLite 数据库。
 
 ## 5. 内存状态
 
-M4 只保存结构化状态：
+M4/M5.6 主要保存结构化状态，并增加有界短期消息缓冲：
 
 - 结构化评估草稿；
 - 缺失字段；
 - 必要对话意图和追问状态；
 - 结构化情景；
 - AssessmentResult；
-- 工具名、状态和耗时。
+- 工具名、状态和耗时；
+- M5.6 增加的最近有限聊天消息（仅 `ChatMemoryStore`，默认最多 8 条、TTL 1800 秒）。
 
 内存状态使用匿名 ID，默认 TTL 为 30 分钟；评估完成或过期后清理。MVP 不使用数据库或浏览器本地持久化保存个人明细。
 
@@ -94,7 +98,7 @@ M4 只保存结构化状态：
 用户当前轮输入
 -> 只进入当前任务需要的专用模型
 -> 返回结构化结果
--> 原始文本不写入存储
+-> 原始文本最多进入有界 ChatMemoryStore
 -> 后续只使用结构化草稿、结果和必要上下文
 
 如果用户输入包含身份、账号、征信或真实账单内容，前端/后端应提示用户不要提交这些内容，并避免将其写入日志。
@@ -186,3 +190,17 @@ auth_sessions
 - 征信、身份、银行卡或真实账单数据。
 
 登录不是授信、审批、放款或借贷推荐。访客模式继续可用。
+## 13. M5.6 短期记忆边界
+
+M5.6 允许原始聊天文本短暂保存在进程内 `ChatMemoryStore`，作为有界上下文缓冲：
+
+- 默认 TTL 1800 秒，可通过 `CHAT_MEMORY_TTL_SECONDS` 配置，范围 1-86400；
+- 默认最多 8 条消息，可通过 `CHAT_MEMORY_MAX_MESSAGES` 配置，范围 1-10；
+- 超出上限删除最旧消息；
+- 不写 SQLite、CSV、日志、数据库或 localStorage；
+- 删除会话、过期或用户重新开始后清理；
+- 不把完整历史发送给任何 LLM；
+- 信息抽取只发送当前消息、结构化草稿和上一轮未回答的问题；
+- 报告解释模型仍只接收 `AssessmentResult`。
+
+认证数据库只保存账号和认证会话，不得保存 `ChatMemoryStore` 中的消息、草稿、评估输入或评估结果。

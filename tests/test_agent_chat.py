@@ -380,3 +380,127 @@ def test_chat_natural_language_description_routes_to_intake() -> None:
     assert body["conversation_id"]
     assert body["missing_fields"] == []
     assert len(model.calls) == 1
+def partial_intake_response() -> dict[str, Any]:
+    return {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "status": "needs_more_info",
+                            "draft": {
+                                "income": {
+                                    "monthly_disposable_allowance": 2000,
+                                    "monthly_part_time_income": 500,
+                                },
+                                "debts": [
+                                    {
+                                        "label": "花呗",
+                                        "monthly_payment": 300,
+                                    }
+                                ],
+                                "no_debts": False,
+                            },
+                            "missing_fields": [
+                                "debts[0].remaining_principal",
+                                "debts[0].remaining_periods",
+                            ],
+                            "warnings": [],
+                            "question": "这笔花呗现在大概还欠多少钱？还要还几个月？",
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+
+
+def test_chat_clarification_uses_only_pending_question_not_full_history(caplog) -> None:
+    model = FakeChatModel([partial_intake_response(), partial_intake_response()])
+    app = create_app(llm_client=model)
+    api = TestClient(app)
+    private_marker = "隐私标记-不要进入第二轮模型"
+
+    with caplog.at_level("DEBUG"):
+        first = api.post(
+            "/api/v1/agent/chat",
+            json={"message": f"我每个月生活费2000，兼职500，花呗月供300。{private_marker}"},
+        )
+    assert first.status_code == 200
+    first_body = first.json()
+    assert first_body["status"] == "needs_more_info"
+    assert first_body["clarification_turns"] == 0
+    assert first_body["remaining_clarification_turns"] == 8
+
+    second = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": first_body["conversation_id"],
+            "message": "那再补一个，这笔还欠1000，还要还5个月。",
+        },
+    )
+    assert second.status_code == 200
+    assert second.json()["status"] == "needs_more_info"
+
+    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
+    assert second_prompt["previous_question"] == first_body["reply"]
+    assert second_prompt["user_message"].startswith("那再补一个")
+    assert private_marker not in json.dumps(second_prompt, ensure_ascii=False)
+    assert private_marker not in caplog.text
+
+    memory = app.state.chat_memory_store.get_optional(first_body["conversation_id"])
+    assert memory is not None
+    assert len(memory.messages) <= 4
+
+
+def test_delete_conversation_clears_chat_memory_and_structured_context() -> None:
+    model = FakeChatModel([education_response()])
+    app = create_app(llm_client=model)
+    api = TestClient(app)
+
+    response = api.post("/api/v1/agent/chat", json={"message": "什么是IRR？"})
+    assert response.status_code == 200
+    conversation_id = response.json()["conversation_id"]
+    assert app.state.chat_memory_store.get_optional(conversation_id) is not None
+    assert app.state.conversation_store.get_optional(conversation_id) is not None
+
+    deleted = api.delete(f"/api/v1/agent/conversations/{conversation_id}")
+
+    assert deleted.status_code == 204
+    assert app.state.chat_memory_store.get_optional(conversation_id) is None
+    assert app.state.conversation_store.get_optional(conversation_id) is None
+def test_chat_clarification_limit_returns_friendly_exit_without_model_call(monkeypatch) -> None:
+    monkeypatch.setenv("MAX_CLARIFICATION_TURNS", "1")
+    model = FakeChatModel([partial_intake_response(), partial_intake_response()])
+    api = TestClient(create_app(llm_client=model))
+
+    first = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "我每个月生活费2000，兼职500，花呗月供300。"},
+    ).json()
+    second = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": first["conversation_id"],
+            "message": "那再补一个，月供是三百。",
+        },
+    ).json()
+    third = api.post(
+        "/api/v1/agent/chat",
+        json={
+            "conversation_id": first["conversation_id"],
+            "message": "继续补充。",
+        },
+    ).json()
+
+    assert first["clarification_turns"] == 0
+    assert second["status"] == "needs_more_info"
+    assert second["clarification_turns"] == 1
+    assert third["status"] == "clarification_limit"
+    assert third["clarification_turns"] == 1
+    assert third["remaining_clarification_turns"] == 0
+    assert "结构化表单" in third["reply"]
+    assert "重新开始" in third["reply"]
+    assert third["tool_activity"] == []
+    assert len(model.calls) == 2

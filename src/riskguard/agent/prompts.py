@@ -45,9 +45,15 @@ EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽�
 15. existing_draft 是已经确认或已经抽取的草稿；返回时必须保留其中非空字段，除非用户明确纠正。
 16. 用户补充信息时，只更新用户新提到的字段，不要删除 existing_draft 中已有值。
 17. question 必须使用普通大学生能理解的大白话，禁止写字段名、JSON key、数组下标，例如 debts[0].remaining_periods、nominal_apr、monthly_payment。
-18. 不要输出用户原文，不要复述整段自然语言。"""
+18. previous_question 是上一轮尚未回答的问题，只用于理解用户这次补充了什么，不要把它当作用户新提供的数据。
+19. 可以使用当前轮消息、existing_draft 和 previous_question，但不要依赖完整聊天历史，也不要要求系统提供完整历史。
+20. 用户纠正已有字段时以本轮明确表达为准；用户没有提到的已知字段必须保留。
+21. 不要编造用户没有提供的金额、期数、利率或订阅费用；不要重复询问 existing_draft 中已经存在的字段。
+22. 已结清负债和订阅规则不得回退：已结清记录不进入正式债务，订阅只进入 recurring_subscriptions。
+23. 不要输出用户原文，不要复述整段自然语言。"""
 
 EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，面向中国在校大学生提供负债压力自查和理性消费科普。
+你只接收结构化 AssessmentResult，不接收原始聊天文本、完整聊天历史或完整财务档案。
 
 严格遵守：
 1. 你只解释工具返回的 AssessmentResult，不进行计算。
@@ -84,6 +90,7 @@ def build_extraction_messages(
     *,
     user_message: str,
     existing_draft: AssessmentDraft | None = None,
+    previous_question: str | None = None,
 ) -> list[dict[str, Any]]:
     """Build the one extraction request. Raw text goes only to this model call."""
 
@@ -99,6 +106,7 @@ def build_extraction_messages(
                         if existing_draft is not None
                         else None
                     ),
+                    "previous_question": previous_question,
                     "extraction_result_schema": ExtractionResult.model_json_schema(),
                     "assessment_request_schema": AssessmentRequest.model_json_schema(),
                     "user_message": user_message,

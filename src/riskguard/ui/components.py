@@ -295,10 +295,37 @@ def render_chat_response(response: dict[str, Any]) -> None:
     status = response.get("status")
     if status == "needs_more_info":
         st.warning(response.get("reply", "还需要补充一点信息。"))
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        remaining = response.get("remaining_clarification_turns")
+        if used is not None and maximum is not None and remaining is not None:
+            st.caption(
+                f"已使用 {used}/{maximum} 轮补充，还可以补充 {remaining} 轮信息。"
+            )
+        return
+
+    if status == "clarification_limit":
+        st.warning(
+            response.get(
+                "reply",
+                "我已经记录了你目前提供的信息。你可以改用结构化表单继续补充，或者重新开始。",
+            )
+        )
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        if used is not None and maximum is not None:
+            st.caption(
+                f"本次对话已使用 {used}/{maximum} 轮补充。"
+                "原草稿仍保留在内存中，但不会继续调用模型追问。"
+            )
         return
 
     if status == "ready_for_confirmation":
         st.success(response.get("reply", "信息已整理完成。"))
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        if used is not None and maximum is not None:
+            st.caption(f"已使用 {used}/{maximum} 轮补充。")
         render_intake_preview(response.get("preview"))
         return
 

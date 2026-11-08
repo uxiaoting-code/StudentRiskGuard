@@ -12,6 +12,7 @@ draft store.
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 from uuid import uuid4
@@ -55,16 +56,28 @@ class IntakeService:
         agent_runner: AgentRunner,
         llm_client: ChatModel,
         conversation_store: ConversationStore | None = None,
-        max_clarification_turns: int = 3,
+        max_clarification_turns: int | None = None,
     ) -> None:
         self._draft_store = draft_store
         self._session_store = session_store
         self._agent_runner = agent_runner
         self._llm_client = llm_client
         self._conversation_store = conversation_store
-        self._max_clarification_turns = max_clarification_turns
+        maximum = (
+            max_clarification_turns
+            if max_clarification_turns is not None
+            else int(os.getenv("MAX_CLARIFICATION_TURNS", "8"))
+        )
+        if not 1 <= maximum <= 50:
+            raise ValueError("max_clarification_turns must be between 1 and 50")
+        self._max_clarification_turns = maximum
 
-    def submit(self, payload: NaturalLanguageIntakeRequest) -> IntakeResponse:
+    def submit(
+        self,
+        payload: NaturalLanguageIntakeRequest,
+        *,
+        previous_question: str | None = None,
+    ) -> IntakeResponse:
         """Extract one turn and return a question, an invalid result, or a preview."""
 
         existing: DraftState | None = None
@@ -74,13 +87,24 @@ class IntakeService:
         conversation_id = (
             existing.conversation_id if existing is not None else self._new_conversation_id()
         )
-        current_turn = 1 if existing is None else existing.clarification_turns + 1
-        if current_turn > self._max_clarification_turns:
+        used_turns = existing.clarification_turns if existing is not None else 0
+
+        # The first user message is free. Once the user has used all follow-up
+        # turns, return a deterministic exit path without another model call and
+        # without modifying the structured draft.
+        if existing is not None and used_turns >= self._max_clarification_turns:
             return IntakeResponse(
                 conversation_id=conversation_id,
-                status="invalid",
-                reply="本次信息补全已达到最大轮次，请重新开始或改用结构化表单填写。",
-                missing_fields=existing.missing_fields if existing is not None else [],
+                status="clarification_limit",
+                reply=(
+                    "我已经记录了你目前提供的信息。为了避免反复追问，"
+                    "你可以改用结构化表单继续补充，或者点击重新开始。"
+                ),
+                missing_fields=existing.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=0,
+                preview=self._preview(existing.draft),
                 warnings=["MAX_CLARIFICATION_TURNS_REACHED"],
             )
 
@@ -88,6 +112,8 @@ class IntakeService:
             extraction = self._extract(
                 user_message=payload.message,
                 existing_draft=existing.draft if existing is not None else None,
+                previous_question=previous_question
+                or (existing.pending_question if existing is not None else None),
             )
         except Exception:
             # Do not expose model internals or raw user text in the response.
@@ -103,14 +129,19 @@ class IntakeService:
                 conversation_id=conversation_id,
                 draft=existing.draft if existing is not None else AssessmentDraft(),
                 missing_fields=existing.missing_fields if existing is not None else [],
-                pending_question=None,
-                turn=current_turn,
+                pending_question=existing.pending_question if existing is not None else None,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="暂时无法可靠解析这段描述，请补充更明确的金额、期数和利率信息。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=extraction.warnings or ["EXTRACTION_INVALID"],
             )
 
@@ -120,14 +151,19 @@ class IntakeService:
                 conversation_id=conversation_id,
                 draft=existing.draft if existing is not None else AssessmentDraft(),
                 missing_fields=existing.missing_fields if existing is not None else [],
-                pending_question=None,
-                turn=current_turn,
+                pending_question=existing.pending_question if existing is not None else None,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="没有提取到可用于评估的结构化信息，请重新描述。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=["EXTRACTION_EMPTY"],
             )
 
@@ -146,31 +182,44 @@ class IntakeService:
                 draft=merged_draft,
                 missing_fields=["income.positive_total"],
                 pending_question="请确认你的生活费或兼职收入，当前总收入不能为零。",
-                turn=current_turn,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="当前收入信息不合法：生活费与兼职收入合计必须大于零。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=["INVALID_TOTAL_INCOME"],
             )
 
         if missing_fields:
             question = self._build_question(missing_fields)
+            # Only a follow-up turn that still asks for more information consumes
+            # one clarification round. The initial message never consumes one.
+            next_turns = used_turns + 1 if existing is not None else 0
             state = self._save_state(
                 existing=existing,
                 conversation_id=conversation_id,
                 draft=merged_draft,
                 missing_fields=missing_fields,
                 pending_question=question,
-                turn=current_turn,
+                turn=next_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="needs_more_info",
                 reply=question,
                 missing_fields=missing_fields,
+                clarification_turns=next_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - next_turns
+                ),
                 preview=self._preview(merged_draft),
                 warnings=extraction.warnings,
             )
@@ -181,17 +230,21 @@ class IntakeService:
             draft=merged_draft,
             missing_fields=[],
             pending_question=None,
-            turn=current_turn,
+            turn=used_turns,
         )
         return IntakeResponse(
             conversation_id=state.conversation_id,
             status="ready_for_confirmation",
             reply="信息已整理完成，请确认以下内容后开始风险评估。",
             missing_fields=[],
+            clarification_turns=used_turns,
+            max_clarification_turns=self._max_clarification_turns,
+            remaining_clarification_turns=max(
+                0, self._max_clarification_turns - used_turns
+            ),
             preview=self._preview(merged_draft),
             warnings=extraction.warnings,
         )
-
     def confirm(
         self,
         conversation_id: str,
@@ -258,11 +311,13 @@ class IntakeService:
         *,
         user_message: str,
         existing_draft: AssessmentDraft | None,
+        previous_question: str | None = None,
     ) -> ExtractionResult:
         response = self._llm_client.complete(
             messages=build_extraction_messages(
                 user_message=user_message,
                 existing_draft=existing_draft,
+                previous_question=previous_question,
             ),
             response_format={"type": "json_object"},
         )
@@ -358,9 +413,10 @@ class IntakeService:
         label = debt.label
         terms = ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
         has_subscription_label = any(term in label for term in terms)
+        # Recurring services do not have a principal. Do not let a stray period
+        # value from extraction push a subscription back into the debt list.
         has_no_principal = debt.remaining_principal is None
-        has_no_active_periods = debt.remaining_periods in (None, 0)
-        return has_subscription_label and has_no_principal and has_no_active_periods
+        return has_subscription_label and has_no_principal
 
     @classmethod
     def _normalize_draft(cls, draft: AssessmentDraft) -> AssessmentDraft:
@@ -370,12 +426,15 @@ class IntakeService:
             debts = []
             for debt in draft.debts:
                 if cls._subscription_like(debt):
-                    subscriptions.append(
-                        RecurringSubscriptionDraft(
-                            label=debt.label or "会员订阅",
-                            monthly_cost=debt.monthly_payment,
-                        )
-                    )
+                    subscriptions = cls._merge_subscriptions(
+                        subscriptions,
+                        [
+                            RecurringSubscriptionDraft(
+                                label=debt.label or "会员订阅",
+                                monthly_cost=debt.monthly_payment,
+                            )
+                        ],
+                    ) or []
                     continue
                 settled = debt.settled is True or debt.remaining_periods == 0
                 debts.append(debt.model_copy(update={"settled": settled}))
@@ -424,7 +483,12 @@ class IntakeService:
         merged = list(existing.debts or [])
         for index, new_debt in enumerate(incoming.debts):
             target_index: int | None = None
-            if new_debt.label:
+            if new_debt.id:
+                target_index = next(
+                    (i for i, old_debt in enumerate(merged) if old_debt.id == new_debt.id),
+                    None,
+                )
+            if target_index is None and new_debt.label:
                 target_index = next(
                     (
                         i
@@ -433,7 +497,10 @@ class IntakeService:
                     ),
                     None,
                 )
-            if target_index is None and index < len(merged):
+            # A label-less correction can refer to the debt at the same
+            # position. A newly named debt must be appended instead of
+            # overwriting an unrelated existing debt.
+            if target_index is None and new_debt.label is None and index < len(merged):
                 target_index = index
 
             if target_index is None:
@@ -467,7 +534,7 @@ class IntakeService:
                     ),
                     None,
                 )
-            if target_index is None and index < len(merged):
+            if target_index is None and new_item.label is None and index < len(merged):
                 target_index = index
             if target_index is None:
                 merged.append(new_item)

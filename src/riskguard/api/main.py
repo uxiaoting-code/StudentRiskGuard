@@ -34,6 +34,7 @@ from riskguard.models import (
 )
 from riskguard.services import (
     AssessmentService,
+    ChatMemoryStore,
     ConversationExpired,
     ConversationNotFound,
     ConversationStore,
@@ -83,12 +84,14 @@ def create_app(
     scenario_store: ScenarioStore | None = None,
     education_service: EducationService | None = None,
     auth_service: AuthService | None = None,
+    chat_memory_store: ChatMemoryStore | None = None,
     llm_client: ChatModel | None = None,
 ) -> FastAPI:
     store = session_store if session_store is not None else SessionStore()
     assessment_service = AssessmentService(store)
     model_client = llm_client or DeepSeekClient.from_env()
     auth = auth_service or AuthService()
+    chat_memory = chat_memory_store if chat_memory_store is not None else ChatMemoryStore()
     drafts = draft_store if draft_store is not None else DraftStore()
     conversations = (
         conversation_store if conversation_store is not None else ConversationStore()
@@ -132,6 +135,7 @@ def create_app(
         education_service=education,
         scenario_service=scenario_service,
         llm_client=model_client,
+        chat_memory_store=chat_memory,
     )
 
     api = FastAPI(
@@ -154,6 +158,7 @@ def create_app(
     api.state.intake_service = intake_service
     api.state.chat_orchestrator = chat_orchestrator
     api.state.auth_service = auth
+    api.state.chat_memory_store = chat_memory
     api.include_router(create_auth_router(auth))
 
     @api.middleware("http")
@@ -317,6 +322,23 @@ def create_app(
     )
     def delete_session(session_id: str) -> Response:
         store.delete(session_id)
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    @api.delete(
+        "/api/v1/agent/conversations/{conversation_id}",
+        status_code=status.HTTP_204_NO_CONTENT,
+        tags=["agent"],
+    )
+    def delete_conversation(conversation_id: str) -> Response:
+        chat_memory.delete(conversation_id)
+        try:
+            drafts.delete(conversation_id)
+        except DraftNotFound:
+            pass
+        try:
+            conversations.delete(conversation_id)
+        except ConversationNotFound:
+            pass
         return Response(status_code=status.HTTP_204_NO_CONTENT)
 
     @api.post(

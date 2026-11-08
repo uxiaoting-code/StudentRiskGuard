@@ -205,3 +205,13 @@ $env:AUTH_TOKEN_TTL_MINUTES="1440"
 ```
 
 `data/auth.db` 已被 `.gitignore` 的 `*.db` 规则排除，不要提交。
+## M5.6 有界追问与上下文记忆
+
+- 首次用户输入不占追问轮数；
+- 默认允许首次输入后 8 轮补充，可通过 `MAX_CLARIFICATION_TURNS=8` 调整；
+- 短期上下文仅保存在进程内 `ChatMemoryStore`，默认最多 8 条消息、TTL 1800 秒；
+- 可通过 `CHAT_MEMORY_MAX_MESSAGES=8` 和 `CHAT_MEMORY_TTL_SECONDS=1800` 配置；
+- 不发送完整聊天历史给任何 LLM，报告解释模型仍只接收 `AssessmentResult`；
+- 删除会话接口为 `DELETE /api/v1/agent/conversations/{conversation_id}`；
+- 达到上限后保留结构化草稿，页面提供结构化表单和重新开始入口；
+- 已结清负债和订阅规则保持不变。

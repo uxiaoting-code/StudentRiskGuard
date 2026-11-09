@@ -55,7 +55,16 @@ EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽�
 23.2. 不要自行计算 remaining_periods。可以填写 total_remaining_repayment、monthly_payment 和 final_payment，后端会用确定性代码检查或推导。
 23.3. 自动续费、会员、订阅、连续包月、月费属于 recurring_subscriptions，不属于 debts；如果标签是“会员分期”等歧义表达，不要擅自判断，交给后端追问。
 24. 用户尚未提到利率时，nominal_apr_status 使用 not_mentioned；用户提供了具体利率时使用 provided。
-25. 不要输出用户原文，不要复述整段自然语言。"""
+25. 不要输出用户原文，不要复述整段自然语言。
+26. 如果 previous_question 正在询问某个具体字段，而用户本轮只回复一个数字，必须把这个数字写入 previous_question 对应的字段；不能因为消息很短就忽略。
+27. 如果同一轮回答包含“每月300，还剩一年”等明确信息，分别填写月供和剩余期数；一年按12期记录，半年按6期，一年半按18期。
+28. 如果无法确定数字含义，不要返回原草稿，应返回 needs_more_info，并只提出一个用于区分金额含义的问题。
+29. 月收入、生活费、零花钱、爸妈给、家里给、兼职、打工、奖学金属于个人收支信息，不是借贷平台推荐请求。
+30. 用户说没有负债、没有分期、已经还完或已经结清时，更新草稿，不要转到科普。
+31. “买的/总价/原价/价格6000”填写 original_amount；“还剩一半没还”填写 remaining_ratio=0.5；不能把6000直接当作 remaining_principal。
+32. 购买金额不等于剩余欠款；总还款额不等于剩余本金。
+33. previous_question 询问剩余欠款时，用户只回复“3000”应填写对应的 remaining_principal，而不是 total_remaining_repayment。
+34. 不能由模型自行计算剩余期数、剩余本金或其他金融指标，相关推导交给后端 Python。"""
 
 EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，面向中国在校大学生提供负债压力自查和理性消费科普。
 你只接收结构化 AssessmentResult，不接收原始聊天文本、完整聊天历史或完整财务档案。

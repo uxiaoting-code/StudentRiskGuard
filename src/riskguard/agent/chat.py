@@ -179,7 +179,7 @@ class ChatOrchestrator:
         elif (
             not explicit_out_of_scope
             and draft is not None
-            and intent not in {"clarification", "assessment_intake"}
+            and intent not in {"clarification", "assessment_intake", "education"}
         ):
             intent = "clarification"
 
@@ -229,6 +229,21 @@ class ChatOrchestrator:
             if conversation is None or conversation.session_id is None:
                 return self._ask_for_assessment(conversation_id)
             return self._handle_scenario(conversation_id, conversation.session_id, request.message)
+
+        if intent == "general_help":
+            self._remember(
+                conversation_id,
+                current_intent="general_help",
+                last_answer_type="needs_more_info",
+            )
+            return AgentChatResponse(
+                conversation_id=conversation_id,
+                status="needs_more_info",
+                reply=(
+                    "我可以帮你做两件事：一是根据生活费和分期情况做负债压力自查，"
+                    "二是解释IRR、分期成本和现金流等概念。你想先做哪一种？"
+                ),
+            )
 
         return self._error(
             conversation_id,

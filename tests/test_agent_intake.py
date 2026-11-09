@@ -634,7 +634,8 @@ def test_invalid_supplement_does_not_consume_a_clarification_turn() -> None:
     assert second.clarification_turns == 0
     assert third.status == "needs_more_info"
     assert third.clarification_turns == 1
-    assert len(model.calls) == 3
+    assert len(model.calls) == 2
+    assert third.preview is not None
 
 
 def test_eight_supplements_are_allowed_then_limit_does_not_call_model() -> None:
@@ -819,8 +820,8 @@ def test_apr_not_mentioned_is_asked_once_then_unknown_is_accepted() -> None:
     assert second.preview is not None
     assert second.preview["debts"][0].get("nominal_apr") is None
     assert "nominal_apr_status" not in second.preview["debts"][0]
-    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
-    assert second_prompt["existing_draft"]["debts"][0]["nominal_apr_status"] == "not_mentioned"
+    assert len(model.calls) == 1
+    assert "DETERMINISTIC_FIELD_FILLED" in second.warnings
 def test_confirmation_is_idempotent_after_draft_is_deleted() -> None:
     service, model, sessions, drafts = build_service(
         [
@@ -967,12 +968,12 @@ def test_total_repayment_is_not_silently_used_as_principal() -> None:
     )
     response = service.submit(NaturalLanguageIntakeRequest(message="花呗总还款1000，每月300。"))
 
+    assert response.status == "needs_more_info"
     assert response.preview is not None
     debt = response.preview["debts"][0]
     assert debt["remaining_principal"] == 800
-    assert debt["total_remaining_repayment"] == 900
-    assert debt["remaining_periods"] == 3
-    assert "remaining_periods" in debt["derived_fields"]
+    assert debt["total_remaining_repayment"] == 1000
+    assert any(field.endswith(".final_payment") for field in response.missing_fields)
 
 
 def test_non_divisible_total_payment_asks_for_final_payment() -> None:

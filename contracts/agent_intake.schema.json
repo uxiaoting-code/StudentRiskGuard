@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_intake.schema.json",
-  "title": "M5.7.1 Natural Language Intake Contracts",
+  "title": "M5.7.2 Natural Language Intake Contracts",
   "$defs": {
     "AssessmentDraft": {
       "additionalProperties": false,
@@ -308,6 +308,33 @@
           "default": null,
           "title": "Label"
         },
+        "original_amount": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Original Amount"
+        },
+        "remaining_ratio": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Remaining Ratio"
+        },
         "remaining_principal": {
           "anyOf": [
             {
@@ -481,6 +508,26 @@
           ],
           "default": null,
           "title": "Pending Question"
+        },
+        "pending_field": {
+          "anyOf": [
+            {
+              "maxLength": 100,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Pending Field"
+        },
+        "no_progress_turns": {
+          "default": 0,
+          "maximum": 10,
+          "minimum": 0,
+          "title": "No Progress Turns",
+          "type": "integer"
         },
         "current_debt_index": {
           "anyOf": [

@@ -216,3 +216,12 @@ M5.6 允许原始聊天文本短暂保存在进程内 `ChatMemoryStore`，作为
 - 确认响应的 `session_id` 只用于清理对应内存 session，不进入聊天记忆或认证数据库；
 - active scenario 在用户取消或越界请求后清理，避免旧状态污染后续对话；
 - 认证数据库仍只包含账号和认证会话字段。
+## 16. M5.7.2 新增草稿字段的隐私边界
+
+- original_amount、remaining_ratio、pending_field 和 no_progress_turns 只保存在进程内 DraftStore；
+- 这些字段不写入认证数据库、CSV、日志或localStorage；
+- 当前轮原始文本仍只用于必要的抽取任务；
+- 确定性短句补全命中时不调用LLM；
+- 不发送完整聊天历史；
+- 报告解释模型仍只接收结构化 AssessmentResult；
+- 删除 conversation 时继续清理草稿和相关上下文。

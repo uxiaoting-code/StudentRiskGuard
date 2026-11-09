@@ -582,7 +582,7 @@ def test_chat_clarification_uses_only_pending_question_not_full_history(caplog) 
         "/api/v1/agent/chat",
         json={
             "conversation_id": first_body["conversation_id"],
-            "message": "那再补一个，这笔还欠1000，还要还5个月。",
+            "message": "那再补一个，你刚问的那个数按一千算。",
         },
     )
     assert second.status_code == 200
@@ -668,7 +668,7 @@ def test_chat_clarification_limit_returns_friendly_exit_without_model_call(monke
     assert "结构化表单" in third["reply"]
     assert "重新开始" in third["reply"]
     assert third["tool_activity"] == []
-    assert len(model.calls) == 2
+    assert len(model.calls) == 1
 def test_scenario_cancellation_clears_active_state_without_model_call() -> None:
     model = FakeChatModel([partial_scenario_response()])
     api, _, conversations = api_with_session(model)
@@ -750,3 +750,118 @@ def test_invalid_intake_returns_422_error_response() -> None:
 
     assert response.status_code == 422
     assert response.json()["error"]["code"] == "INTAKE_INVALID"
+
+def test_unknown_input_returns_general_help_without_model_call() -> None:
+    model = FakeChatModel([])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post("/api/v1/agent/chat", json={"message": "今天天气不错"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "needs_more_info"
+    assert "负债压力自查" in body["reply"]
+    assert "不能推荐借贷平台" not in body["reply"]
+    assert len(model.calls) == 0
+
+
+def test_oral_electric_bike_flow_does_not_repeat_or_call_model_for_short_answers() -> None:
+    extraction = {
+        "choices": [
+            {
+                "message": {
+                    "content": json.dumps(
+                        {
+                            "status": "needs_more_info",
+                            "draft": {
+                                "income": {
+                                    "monthly_disposable_allowance": 2000,
+                                    "monthly_part_time_income": 500,
+                                },
+                                "debts": [
+                                    {
+                                        "label": "电动车分期",
+                                        "nominal_apr_status": "not_mentioned",
+                                    }
+                                ],
+                                "no_debts": False,
+                            },
+                            "missing_fields": [],
+                            "warnings": [],
+                            "question": None,
+                        },
+                        ensure_ascii=False,
+                    )
+                }
+            }
+        ]
+    }
+    model = FakeChatModel([extraction])
+    api = TestClient(create_app(llm_client=model))
+
+    first = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "我有个电动车分期，买的六千，还剩一半没还"},
+    ).json()
+    assert first["status"] == "needs_more_info"
+    assert first["preview"]["debts"][0]["remaining_principal"] == 3000
+    assert "REMAINING_PRINCIPAL_ESTIMATED" in first["warnings"]
+    assert "每个月大概还多少" in first["reply"]
+    conversation_id = first["conversation_id"]
+
+    replies = [first["reply"]]
+    last = first
+    for message in ("每月500", "还剩6期", "利率不知道"):
+        response = api.post(
+            "/api/v1/agent/chat",
+            json={"conversation_id": conversation_id, "message": message},
+        )
+        assert response.status_code == 200
+        last = response.json()
+        replies.append(last.get("reply", ""))
+
+    assert last["status"] == "ready_for_confirmation"
+    assert last["preview"]["debts"][0]["remaining_principal"] == 3000
+    assert last["preview"]["debts"][0]["monthly_payment"] == 500
+    assert last["preview"]["debts"][0]["remaining_periods"] == 6
+    assert last["preview"]["debts"][0].get("nominal_apr") is None
+    assert len(model.calls) == 1
+    assert len(replies) == len(set(replies))
+    for reply in replies:
+        for internal in (
+            "remaining_principal",
+            "monthly_payment",
+            "remaining_periods",
+            "nominal_apr",
+            "debts[0]",
+        ):
+            assert internal not in reply
+
+def test_personal_borrowing_description_is_not_treated_as_lender_request() -> None:
+    model = FakeChatModel([partial_intake_response()])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "我借钱买了个手机，现在每月还500"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] != "out_of_scope"
+    assert "不能推荐借贷平台" not in body["reply"]
+    assert len(model.calls) == 1
+
+
+def test_oral_monthly_income_routes_to_intake_not_lending_refusal() -> None:
+    model = FakeChatModel([intake_response()])
+    api = TestClient(create_app(llm_client=model))
+
+    response = api.post(
+        "/api/v1/agent/chat",
+        json={"message": "我现在月收入2000，还有800的零花钱。"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "ready_for_confirmation"
+    assert len(model.calls) == 1

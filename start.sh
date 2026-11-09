@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 export API_PORT="${API_PORT:-8000}"
+export PORT="${PORT:-7860}"
 export RISKGUARD_API_URL="${RISKGUARD_API_URL:-http://127.0.0.1:${API_PORT}}"
 export AUTH_DB_PATH="${AUTH_DB_PATH:-/tmp/studentriskguard/auth.db}"
 
@@ -43,6 +44,6 @@ PY
 
 streamlit run app.py \
   --server.address 0.0.0.0 \
-  --server.port 7860 \
+  --server.port "${PORT}" \
   --server.headless true \
   --browser.gatherUsageStats false

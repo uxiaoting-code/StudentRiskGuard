@@ -12,6 +12,7 @@ draft store.
 from __future__ import annotations
 
 import json
+import os
 import re
 from typing import Any
 from uuid import uuid4
@@ -35,6 +36,8 @@ from riskguard.services import (
     ConversationExpired,
     ConversationNotFound,
     ConversationStore,
+    DraftExpired,
+    DraftNotFound,
     DraftStore,
     SessionStore,
 )
@@ -55,16 +58,28 @@ class IntakeService:
         agent_runner: AgentRunner,
         llm_client: ChatModel,
         conversation_store: ConversationStore | None = None,
-        max_clarification_turns: int = 3,
+        max_clarification_turns: int | None = None,
     ) -> None:
         self._draft_store = draft_store
         self._session_store = session_store
         self._agent_runner = agent_runner
         self._llm_client = llm_client
         self._conversation_store = conversation_store
-        self._max_clarification_turns = max_clarification_turns
+        maximum = (
+            max_clarification_turns
+            if max_clarification_turns is not None
+            else int(os.getenv("MAX_CLARIFICATION_TURNS", "8"))
+        )
+        if not 1 <= maximum <= 50:
+            raise ValueError("max_clarification_turns must be between 1 and 50")
+        self._max_clarification_turns = maximum
 
-    def submit(self, payload: NaturalLanguageIntakeRequest) -> IntakeResponse:
+    def submit(
+        self,
+        payload: NaturalLanguageIntakeRequest,
+        *,
+        previous_question: str | None = None,
+    ) -> IntakeResponse:
         """Extract one turn and return a question, an invalid result, or a preview."""
 
         existing: DraftState | None = None
@@ -74,13 +89,24 @@ class IntakeService:
         conversation_id = (
             existing.conversation_id if existing is not None else self._new_conversation_id()
         )
-        current_turn = 1 if existing is None else existing.clarification_turns + 1
-        if current_turn > self._max_clarification_turns:
+        used_turns = existing.clarification_turns if existing is not None else 0
+
+        # The first user message is free. Once the user has used all follow-up
+        # turns, return a deterministic exit path without another model call and
+        # without modifying the structured draft.
+        if existing is not None and used_turns >= self._max_clarification_turns:
             return IntakeResponse(
                 conversation_id=conversation_id,
-                status="invalid",
-                reply="本次信息补全已达到最大轮次，请重新开始或改用结构化表单填写。",
-                missing_fields=existing.missing_fields if existing is not None else [],
+                status="clarification_limit",
+                reply=(
+                    "我已经记录了你目前提供的信息。为了避免反复追问，"
+                    "你可以改用结构化表单继续补充，或者点击重新开始。"
+                ),
+                missing_fields=existing.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=0,
+                preview=self._preview(existing.draft),
                 warnings=["MAX_CLARIFICATION_TURNS_REACHED"],
             )
 
@@ -88,6 +114,8 @@ class IntakeService:
             extraction = self._extract(
                 user_message=payload.message,
                 existing_draft=existing.draft if existing is not None else None,
+                previous_question=previous_question
+                or (existing.pending_question if existing is not None else None),
             )
         except Exception:
             # Do not expose model internals or raw user text in the response.
@@ -103,14 +131,19 @@ class IntakeService:
                 conversation_id=conversation_id,
                 draft=existing.draft if existing is not None else AssessmentDraft(),
                 missing_fields=existing.missing_fields if existing is not None else [],
-                pending_question=None,
-                turn=current_turn,
+                pending_question=existing.pending_question if existing is not None else None,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="暂时无法可靠解析这段描述，请补充更明确的金额、期数和利率信息。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=extraction.warnings or ["EXTRACTION_INVALID"],
             )
 
@@ -120,22 +153,33 @@ class IntakeService:
                 conversation_id=conversation_id,
                 draft=existing.draft if existing is not None else AssessmentDraft(),
                 missing_fields=existing.missing_fields if existing is not None else [],
-                pending_question=None,
-                turn=current_turn,
+                pending_question=existing.pending_question if existing is not None else None,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="没有提取到可用于评估的结构化信息，请重新描述。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=["EXTRACTION_EMPTY"],
             )
 
-        merged_draft = self._normalize_draft(
-            self._merge_drafts(
-                existing.draft if existing is not None else AssessmentDraft(),
-                extraction.draft,
-            )
+        merged_draft = self._mark_unknown_apr(
+            self._normalize_draft(
+                self._apply_debt_kind_signal(
+                    self._merge_drafts(
+                        existing.draft if existing is not None else AssessmentDraft(),
+                        extraction.draft,
+                    ),
+                    payload.message,
+                )
+            ),
+            payload.message,
         )
         missing_fields = self._collect_missing_fields(merged_draft)
 
@@ -146,31 +190,50 @@ class IntakeService:
                 draft=merged_draft,
                 missing_fields=["income.positive_total"],
                 pending_question="请确认你的生活费或兼职收入，当前总收入不能为零。",
-                turn=current_turn,
+                turn=used_turns,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="invalid",
                 reply="当前收入信息不合法：生活费与兼职收入合计必须大于零。",
                 missing_fields=state.missing_fields,
+                clarification_turns=used_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - used_turns
+                ),
                 warnings=["INVALID_TOTAL_INCOME"],
             )
 
         if missing_fields:
-            question = self._build_question(missing_fields)
+            question = self._build_question(missing_fields, merged_draft)
+            context_index, context_label = self._question_context(
+                missing_fields[0],
+                merged_draft,
+            )
+            # Only a follow-up turn that still asks for more information consumes
+            # one clarification round. The initial message never consumes one.
+            next_turns = used_turns + 1 if existing is not None else 0
             state = self._save_state(
                 existing=existing,
                 conversation_id=conversation_id,
                 draft=merged_draft,
                 missing_fields=missing_fields,
                 pending_question=question,
-                turn=current_turn,
+                turn=next_turns,
+                current_debt_index=context_index,
+                current_debt_label=context_label,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
                 status="needs_more_info",
                 reply=question,
                 missing_fields=missing_fields,
+                clarification_turns=next_turns,
+                max_clarification_turns=self._max_clarification_turns,
+                remaining_clarification_turns=max(
+                    0, self._max_clarification_turns - next_turns
+                ),
                 preview=self._preview(merged_draft),
                 warnings=extraction.warnings,
             )
@@ -181,17 +244,21 @@ class IntakeService:
             draft=merged_draft,
             missing_fields=[],
             pending_question=None,
-            turn=current_turn,
+            turn=used_turns,
         )
         return IntakeResponse(
             conversation_id=state.conversation_id,
             status="ready_for_confirmation",
             reply="信息已整理完成，请确认以下内容后开始风险评估。",
             missing_fields=[],
+            clarification_turns=used_turns,
+            max_clarification_turns=self._max_clarification_turns,
+            remaining_clarification_turns=max(
+                0, self._max_clarification_turns - used_turns
+            ),
             preview=self._preview(merged_draft),
             warnings=extraction.warnings,
         )
-
     def confirm(
         self,
         conversation_id: str,
@@ -199,7 +266,18 @@ class IntakeService:
     ) -> AgentResponse:
         """Confirm the draft, create a session and run the existing M4 chain."""
 
-        state = self._draft_store.get(conversation_id)
+        try:
+            state = self._draft_store.get(conversation_id)
+        except (DraftNotFound, DraftExpired) as exc:
+            # Confirmation is intentionally idempotent. A browser double click
+            # or a Streamlit rerun must not surface a misleading DraftNotFound
+            # after the first confirmation already created a session.
+            if self._conversation_store is not None:
+                conversation = self._conversation_store.get_optional(conversation_id)
+                if conversation is not None and conversation.session_id is not None:
+                    response = self._agent_runner.assess(conversation.session_id)
+                    return response.model_copy(update={"session_id": conversation.session_id})
+            raise IntakeNotReady("draft has already been confirmed or expired") from exc
         if assessment_request is not None:
             # A user-edited preview is allowed to fill gaps in the draft, but it
             # still has to pass the frozen AssessmentRequest validation below.
@@ -219,7 +297,7 @@ class IntakeService:
         response = self._agent_runner.assess(request.session_id)
         self._remember_assessment(conversation_id, request.session_id, response)
         self._draft_store.delete(conversation_id)
-        return response
+        return response.model_copy(update={"session_id": request.session_id})
 
     def _remember_assessment(
         self,
@@ -239,18 +317,23 @@ class IntakeService:
                 last_assessment_id=assessment_id,
                 last_tool="run_risk_assessment",
                 last_answer_type="assessment",
+                clear_active_task=True,
+                clear_active_scenario=True,
             )
         except (ConversationNotFound, ConversationExpired):
             self._conversation_store.create(
                 conversation_id=conversation_id,
                 session_id=session_id,
                 current_intent="risk_explanation",
+                active_task=None,
             )
             self._conversation_store.update(
                 conversation_id,
                 last_assessment_id=assessment_id,
                 last_tool="run_risk_assessment",
                 last_answer_type="assessment",
+                clear_active_task=True,
+                clear_active_scenario=True,
             )
 
     def _extract(
@@ -258,11 +341,13 @@ class IntakeService:
         *,
         user_message: str,
         existing_draft: AssessmentDraft | None,
+        previous_question: str | None = None,
     ) -> ExtractionResult:
         response = self._llm_client.complete(
             messages=build_extraction_messages(
                 user_message=user_message,
                 existing_draft=existing_draft,
+                previous_question=previous_question,
             ),
             response_format={"type": "json_object"},
         )
@@ -294,6 +379,8 @@ class IntakeService:
         missing_fields: list[str],
         pending_question: str | None,
         turn: int,
+        current_debt_index: int | None = None,
+        current_debt_label: str | None = None,
     ) -> DraftState:
         if existing is None:
             return self._draft_store.create(
@@ -301,6 +388,8 @@ class IntakeService:
                 draft=draft,
                 missing_fields=missing_fields,
                 pending_question=pending_question,
+                current_debt_index=current_debt_index,
+                current_debt_label=current_debt_label,
                 clarification_turns=turn,
             )
         updated = existing.model_copy(
@@ -309,6 +398,8 @@ class IntakeService:
                 "missing_fields": missing_fields,
                 "pending_question": pending_question,
                 "clarification_turns": turn,
+                "current_debt_index": current_debt_index,
+                "current_debt_label": current_debt_label,
                 "confirmed": False,
             }
         )
@@ -352,15 +443,55 @@ class IntakeService:
         )
 
     @staticmethod
+    def _is_ambiguous_subscription_label(debt: DebtDraft) -> bool:
+        if debt.label is None:
+            return False
+        label = debt.label
+        has_subscription_word = any(
+            term in label for term in ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
+        )
+        return has_subscription_word and "分期" in label
+
+    @classmethod
+    def _apply_debt_kind_signal(
+        cls,
+        draft: AssessmentDraft,
+        user_message: str,
+    ) -> AssessmentDraft:
+        normalized = user_message.lower()
+        if any(term in normalized for term in ("自动续费", "订阅", "每月扣", "连续包月", "月费")):
+            kind = "subscription"
+        elif any(term in normalized for term in ("一次性", "不是订阅", "普通分期")):
+            kind = "installment"
+        else:
+            return draft
+        debts = [
+            debt.model_copy(update={"kind": kind})
+            if cls._is_ambiguous_subscription_label(debt) or debt.kind == "unknown"
+            else debt
+            for debt in (draft.debts or [])
+        ]
+        return draft.model_copy(update={"debts": debts})
+
+    @staticmethod
     def _subscription_like(debt: DebtDraft) -> bool:
         if debt.label is None:
+            return False
+        if debt.kind == "installment":
             return False
         label = debt.label
         terms = ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
         has_subscription_label = any(term in label for term in terms)
+        # Recurring services do not have a principal. A label containing
+        # "分期" is ambiguous and must be clarified, not silently moved.
         has_no_principal = debt.remaining_principal is None
-        has_no_active_periods = debt.remaining_periods in (None, 0)
-        return has_subscription_label and has_no_principal and has_no_active_periods
+        if debt.kind == "subscription":
+            return has_subscription_label and has_no_principal
+        return (
+            has_subscription_label
+            and has_no_principal
+            and "分期" not in label
+        )
 
     @classmethod
     def _normalize_draft(cls, draft: AssessmentDraft) -> AssessmentDraft:
@@ -370,19 +501,65 @@ class IntakeService:
             debts = []
             for debt in draft.debts:
                 if cls._subscription_like(debt):
-                    subscriptions.append(
-                        RecurringSubscriptionDraft(
-                            label=debt.label or "会员订阅",
-                            monthly_cost=debt.monthly_payment,
-                        )
-                    )
+                    subscriptions = cls._merge_subscriptions(
+                        subscriptions,
+                        [
+                            RecurringSubscriptionDraft(
+                                label=debt.label or "会员订阅",
+                                monthly_cost=debt.monthly_payment,
+                            )
+                        ],
+                    ) or []
                     continue
+                if cls._is_ambiguous_subscription_label(debt) and debt.kind is None:
+                    debt = debt.model_copy(update={"kind": "unknown"})
+                debt = cls._derive_debt_fields(debt)
                 settled = debt.settled is True or debt.remaining_periods == 0
-                debts.append(debt.model_copy(update={"settled": settled}))
+                apr_status = debt.nominal_apr_status
+                if debt.nominal_apr is not None:
+                    apr_status = "provided"
+                elif apr_status is None:
+                    apr_status = "not_mentioned"
+                debts.append(
+                    debt.model_copy(
+                        update={
+                            "settled": settled,
+                            "nominal_apr_status": apr_status,
+                        }
+                    )
+                )
         return draft.model_copy(
             update={
                 "debts": debts,
                 "recurring_subscriptions": subscriptions if subscriptions else draft.recurring_subscriptions,
+            }
+        )
+
+    @classmethod
+    def _derive_debt_fields(cls, debt: DebtDraft) -> DebtDraft:
+        derivations = list(debt.derived_fields)
+        total = debt.total_remaining_repayment
+        monthly = debt.monthly_payment
+        periods = debt.remaining_periods
+        final_payment = debt.final_payment
+        if periods is None and total is not None and monthly is not None:
+            ratio = total / monthly
+            rounded = round(ratio)
+            if abs(ratio - rounded) < 1e-9 and rounded >= 1:
+                periods = int(rounded)
+                if "remaining_periods" not in derivations:
+                    derivations.append("remaining_periods")
+            elif final_payment is not None and total > monthly:
+                full_payments = int(total // monthly)
+                remainder = round(total - full_payments * monthly, 6)
+                if abs(remainder - final_payment) < 1e-9:
+                    periods = full_payments + 1
+                    if "remaining_periods" not in derivations:
+                        derivations.append("remaining_periods")
+        return debt.model_copy(
+            update={
+                "remaining_periods": periods,
+                "derived_fields": derivations,
             }
         )
 
@@ -424,7 +601,12 @@ class IntakeService:
         merged = list(existing.debts or [])
         for index, new_debt in enumerate(incoming.debts):
             target_index: int | None = None
-            if new_debt.label:
+            if new_debt.id:
+                target_index = next(
+                    (i for i, old_debt in enumerate(merged) if old_debt.id == new_debt.id),
+                    None,
+                )
+            if target_index is None and new_debt.label:
                 target_index = next(
                     (
                         i
@@ -433,7 +615,10 @@ class IntakeService:
                     ),
                     None,
                 )
-            if target_index is None and index < len(merged):
+            # A label-less correction can refer to the debt at the same
+            # position. A newly named debt must be appended instead of
+            # overwriting an unrelated existing debt.
+            if target_index is None and new_debt.label is None and index < len(merged):
                 target_index = index
 
             if target_index is None:
@@ -467,7 +652,7 @@ class IntakeService:
                     ),
                     None,
                 )
-            if target_index is None and index < len(merged):
+            if target_index is None and new_item.label is None and index < len(merged):
                 target_index = index
             if target_index is None:
                 merged.append(new_item)
@@ -499,14 +684,29 @@ class IntakeService:
                 missing.append("debts")
             else:
                 for index, debt in enumerate(active_debts):
-                    for field in (
-                        "remaining_principal",
-                        "monthly_payment",
-                        "remaining_periods",
-                        "nominal_apr",
+                    if debt.kind == "unknown":
+                        missing.append(f"debts[{index}].kind")
+                    if debt.remaining_principal is None:
+                        missing.append(f"debts[{index}].remaining_principal")
+                    if debt.monthly_payment is None:
+                        missing.append(f"debts[{index}].monthly_payment")
+                    if debt.remaining_periods is None:
+                        total = debt.total_remaining_repayment
+                        monthly = debt.monthly_payment
+                        if (
+                            total is not None
+                            and monthly is not None
+                            and debt.final_payment is None
+                            and abs((total / monthly) - round(total / monthly)) > 1e-9
+                        ):
+                            missing.append(f"debts[{index}].final_payment")
+                        else:
+                            missing.append(f"debts[{index}].remaining_periods")
+                    if (
+                        debt.nominal_apr is None
+                        and debt.nominal_apr_status != "unknown"
                     ):
-                        if getattr(debt, field) is None:
-                            missing.append(f"debts[{index}].{field}")
+                        missing.append(f"debts[{index}].nominal_apr")
 
         for index, subscription in enumerate(draft.recurring_subscriptions or []):
             if subscription.label is None:
@@ -532,43 +732,97 @@ class IntakeService:
         )
 
     @staticmethod
-    def _build_question(missing_fields: list[str]) -> str:
-        questions: list[str] = []
-        for field in missing_fields:
-            tail = field.rsplit(".", 1)[-1]
-            if field.startswith("income.monthly_disposable_allowance"):
-                questions.append("你每个月大概有多少生活费？")
-            elif field.startswith("income.monthly_part_time_income"):
-                questions.append("你每个月大概有多少兼职收入？没有的话可以直接说没有。")
-            elif field == "debts":
-                questions.append("你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。")
-            elif tail == "remaining_principal":
-                questions.append("这笔分期现在大概还欠多少钱？")
-            elif tail == "monthly_payment":
-                questions.append("这笔分期每个月大概还多少？")
-            elif tail == "remaining_periods":
-                questions.append("这笔分期还要还几个月？")
-            elif tail == "nominal_apr":
-                questions.append("这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。")
-            elif tail == "label":
-                questions.append("这个订阅或会员叫什么名字？")
-            elif tail == "monthly_cost":
-                questions.append("这个会员每个月大概扣多少钱？")
-            elif field == "income.positive_total":
-                questions.append("请确认一下你每个月的生活费和兼职收入大概是多少。")
-        if not questions:
-            questions.append("请再补充一下这笔账单的还款情况。")
-        unique_questions: list[str] = []
-        for question in questions:
-            if question not in unique_questions:
-                unique_questions.append(question)
-        return "还差一点信息：" + " ".join(unique_questions[:6])
+    def _question_context(
+        field: str,
+        draft: AssessmentDraft,
+    ) -> tuple[int | None, str | None]:
+        match = re.match(r"debts\[(\d+)\]", field)
+        if match:
+            active = IntakeService._active_debts(draft)
+            index = int(match.group(1))
+            if 0 <= index < len(active):
+                debt = active[index]
+                label = debt.label or f"第{index + 1}笔分期"
+                return index, label
+        match = re.match(r"recurring_subscriptions\[(\d+)\]", field)
+        if match:
+            index = int(match.group(1))
+            subscriptions = draft.recurring_subscriptions or []
+            if 0 <= index < len(subscriptions):
+                return None, subscriptions[index].label or f"第{index + 1}个订阅"
+        return None, None
+
+    @staticmethod
+    def _build_question(missing_fields: list[str], draft: AssessmentDraft) -> str:
+        field = missing_fields[0]
+        tail = field.rsplit(".", 1)[-1]
+        context_index, context_label = IntakeService._question_context(field, draft)
+        if context_index is not None and context_label:
+            subject = f"{context_label}这笔分期"
+        elif context_label:
+            subject = context_label
+        else:
+            subject = "这笔账单"
+        if field.startswith("income.monthly_disposable_allowance"):
+            question = "你每个月大概有多少生活费？"
+        elif field.startswith("income.monthly_part_time_income"):
+            question = "你每个月大概有多少兼职收入？没有的话可以直接说没有。"
+        elif field == "debts":
+            question = "你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。"
+        elif tail == "remaining_principal":
+            question = f"{subject}现在还欠的本金大概是多少？"
+        elif tail == "total_remaining_repayment":
+            question = f"{subject}总共还要还多少钱？"
+        elif tail == "final_payment":
+            question = f"{subject}最后一期大概还要还多少？"
+        elif tail == "monthly_payment":
+            question = f"{subject}每个月大概还多少？"
+        elif tail == "remaining_periods":
+            question = f"{subject}还要还几个月？"
+        elif tail == "nominal_apr":
+            question = f"{subject}当时约定的利率大概是多少？不清楚也可以直接说不知道。"
+        elif tail == "kind":
+            question = f"{subject}是一次性分期，还是每月自动续费？"
+        elif tail == "label":
+            question = f"{subject}叫什么名字？"
+        elif tail == "monthly_cost":
+            question = f"{subject}每个月大概扣多少钱？"
+        elif field == "income.positive_total":
+            question = "请确认一下你每个月的生活费和兼职收入大概是多少。"
+        else:
+            question = "请再补充一下这笔账单的还款情况。"
+        return "还差一点信息：" + question
+    @staticmethod
+    def _mark_unknown_apr(
+        draft: AssessmentDraft,
+        user_message: str,
+    ) -> AssessmentDraft:
+        normalized = user_message.lower()
+        unknown_terms = ("不知道", "不清楚", "没注意", "没告诉我", "忘了")
+        mentions_apr = "利率" in normalized or "年化" in normalized
+        if not (mentions_apr and any(term in normalized for term in unknown_terms)):
+            return draft
+        debts = [
+            debt.model_copy(
+                update={
+                    "nominal_apr": None,
+                    "nominal_apr_status": "unknown",
+                }
+            )
+            if debt.nominal_apr is None
+            else debt
+            for debt in (draft.debts or [])
+        ]
+        return draft.model_copy(update={"debts": debts})
 
     @staticmethod
     def _preview(draft: AssessmentDraft) -> dict[str, Any]:
         preview = draft.model_dump(mode="json", exclude_none=True)
-        # This is an internal marker, not a field for the user-facing preview.
+        # Internal markers are not part of the user-facing preview.
         preview.pop("no_debts", None)
+        for debt in preview.get("debts", []):
+            debt.pop("nominal_apr_status", None)
+            debt.pop("kind", None)
         return preview
 
     @staticmethod

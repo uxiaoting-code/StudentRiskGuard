@@ -8,7 +8,8 @@ from pathlib import Path
 
 from riskguard.agent.deepseek import ChatModel
 from riskguard.agent.prompts import build_education_messages
-from riskguard.agent.schemas import EducationAnswer, EducationCard
+from riskguard.agent.safety import is_safe_text
+from riskguard.agent.schemas import EducationAnswer, EducationCard, EducationSelection
 from riskguard.models import FIXED_BOUNDARY_NOTICE
 
 
@@ -71,17 +72,16 @@ class EducationService:
                 messages=build_education_messages(question=question, card=card),
                 response_format={"type": "json_object"},
             )
-            answer = self._parse_answer(response, card)
-            if answer.topic_ids != [card.topic_id]:
+            selection = self._parse_selection(response)
+            if selection.topic_id != card.topic_id:
                 raise ValueError("education answer references the wrong topic")
-            if self._is_safe(answer):
-                return answer.model_copy(update={"review_status": card.review_status})
+            return self._compose_answer(card, selection)
         except Exception:
             pass
         return self._fallback_answer(card)
 
     @staticmethod
-    def _parse_answer(response: object, card: EducationCard) -> EducationAnswer:
+    def _parse_selection(response: object) -> EducationSelection:
         if not isinstance(response, dict):
             raise ValueError("education response is not an object")
         choices = response.get("choices")
@@ -100,32 +100,59 @@ class EducationService:
             end = cleaned.rfind("}")
             if start >= 0 and end > start:
                 cleaned = cleaned[start : end + 1]
-        return EducationAnswer.model_validate_json(cleaned)
+        return EducationSelection.model_validate_json(cleaned)
 
     @staticmethod
-    def _is_safe(answer: EducationAnswer) -> bool:
-        forbidden_terms = (
-            "借款平台",
-            "贷款平台",
-            "推荐平台",
-            "保证收益",
-            "承诺收益",
-            "保证解决",
-            "审批通过",
-            "授信额度",
-            "放款",
-            "以贷养贷",
+    def _select_items(indices: list[int], source: list[str]) -> list[str]:
+        selected: list[str] = []
+        for index in indices:
+            if index < 1 or index > len(source):
+                raise ValueError("education source index is out of range")
+            item = source[index - 1]
+            if item not in selected:
+                selected.append(item)
+        return selected
+
+    @classmethod
+    def _compose_answer(
+        cls,
+        card: EducationCard,
+        selection: EducationSelection,
+    ) -> EducationAnswer:
+        excerpts = cls._select_items(
+            selection.key_point_indices,
+            card.key_points,
         )
-        if any(term in answer.answer for term in forbidden_terms):
-            return False
-        if re.search(r"\d", answer.answer):
-            return False
-        return True
-
-    @staticmethod
-    def _fallback_answer(card: EducationCard) -> EducationAnswer:
+        excerpts.extend(
+            cls._select_items(
+                selection.action_indices,
+                card.allowed_actions,
+            )
+        )
+        answer = "；".join(excerpts)
+        if len(answer) > 1200:
+            raise ValueError("composed education answer is too long")
+        if not is_safe_text(answer):
+            raise ValueError("composed education answer failed safety validation")
         return EducationAnswer(
-            answer="；".join(card.key_points),
+            answer=answer,
+            source_excerpts=excerpts,
+            topic_ids=[card.topic_id],
+            boundary_notice=FIXED_BOUNDARY_NOTICE,
+            review_status=card.review_status,
+        )
+
+    @classmethod
+    def _fallback_answer(cls, card: EducationCard) -> EducationAnswer:
+        excerpts = list(card.key_points[:2])
+        if card.allowed_actions:
+            excerpts.append(card.allowed_actions[0])
+        answer = "；".join(excerpts)
+        if not is_safe_text(answer):
+            excerpts = ["当前内容需要进一步审核，请先核对分期成本和现金流。"]
+        return EducationAnswer(
+            answer="；".join(excerpts),
+            source_excerpts=excerpts,
             topic_ids=[card.topic_id],
             boundary_notice=FIXED_BOUNDARY_NOTICE,
             review_status=card.review_status,

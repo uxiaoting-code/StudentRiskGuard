@@ -68,7 +68,7 @@ def classify_intent(
     normalized = message.lower()
 
     # Safety routing takes priority even if an intake draft is active.
-    if any(term in normalized for term in _OUT_OF_SCOPE_TERMS):
+    if is_out_of_scope_message(normalized):
         return "out_of_scope"
 
     if has_draft:
@@ -87,6 +87,11 @@ def classify_intent(
         return "education"
 
     return "out_of_scope"
+
+
+def is_out_of_scope_message(message: str) -> bool:
+    normalized = message.lower()
+    return any(term in normalized for term in _OUT_OF_SCOPE_TERMS)
 
 
 def _looks_like_scenario(message: str) -> bool:

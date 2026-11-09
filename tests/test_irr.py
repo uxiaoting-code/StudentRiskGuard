@@ -57,3 +57,23 @@ def test_irr_uses_effective_annualization() -> None:
     assert result.annualized_irr == pytest.approx(
         (1 + result.monthly_irr) ** 12 - 1
     )
+
+
+def test_unknown_nominal_apr_does_not_change_irr() -> None:
+    known = Debt(
+        id="known",
+        label="已知利率",
+        remaining_principal=2400,
+        monthly_payment=300,
+        remaining_periods=8,
+        nominal_apr=0.12,
+    )
+    unknown = known.model_copy(update={"id": "unknown", "nominal_apr": None})
+
+    known_result = compute_debt_irr(known)
+    unknown_result = compute_debt_irr(unknown)
+
+    assert unknown_result.monthly_irr == pytest.approx(known_result.monthly_irr)
+    assert unknown_result.annualized_irr == pytest.approx(
+        known_result.annualized_irr
+    )

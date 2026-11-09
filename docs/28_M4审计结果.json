@@ -1,10 +1,13 @@
 {
   "module_id": "M4",
-  "status": "technical_pass",
-  "tests": {
-    "passed": 97,
+  "updated_at": "2026-11-09",
+  "implementation_status": "technical_pass_pending_economic_review",
+  "automated_tests": {
+    "status": "passed",
+    "passed": 178,
     "failed": 0,
-    "warning": "FastAPI TestClient deprecation warning"
+    "command": "python -m pytest -q",
+    "note": "2026-11-09 在 Python 3.14 环境执行；项目声明范围仍为 Python 3.11-3.12"
   },
   "agent_flow": [
     "validate_session",
@@ -17,23 +20,28 @@
   "tool_name": "run_risk_assessment",
   "fallback_verified": true,
   "session_binding_verified": true,
-  "live_deepseek_tool_call_verified": true,
-  "live_deepseek_reason": "verified with a real DeepSeek API key on 2026-11-08",
-  "runtime_http_dependency_declared": true,
-  "live_deepseek_verified_at": "2026-11-08",
+  "live_deepseek_reverified_in_this_change": false,
+  "live_deepseek_note": "仓库历史记录曾记录真实 Key 验证；本次修复未重新调用真实 DeepSeek，不宣称复验完成",
+  "manual_ui_verified": true,
+  "education_review_status": "pending",
+  "privacy_scope": "scheme_a_current_turn_only",
+  "privacy_review_status": "pending_economic_and_project_manual_review",
+  "audit_remediation_status": "technical_pass_pending_economic_review",
   "pending": [
-    "M5 page privacy notice verification",
+    "education-card economic signoff",
+    "real DeepSeek re-verification",
     "M6 full safety and privacy test suite"
   ],
   "m4a": {
-    "status": "technical_pass",
+    "status": "technical_pass_pending_manual_review",
     "natural_language_intake": true,
     "draft_store_ttl_seconds": 1800,
-    "max_clarification_turns": 3,
-    "raw_text_persisted": false
+    "max_clarification_turns": 8,
+    "unknown_nominal_apr_supported": true,
+    "raw_text_persisted_to_disk": false
   },
   "m4b": {
-    "status": "technical_pass",
+    "status": "technical_pass_pending_manual_review",
     "chat_endpoint": "/api/v1/agent/chat",
     "intent_routes": [
       "assessment_intake",
@@ -49,9 +57,10 @@
       "simulate_new_installment"
     ],
     "education_cards": 10,
-    "education_review_status": "approved",
+    "education_review_status": "pending",
+    "education_answer_grounding": "selected_card_source_excerpts",
     "conversation_store": "in_memory_ttl",
-    "scenario_store": "in_memory_ttl",
+    "scenario_store": "in_memory_ttl_with_partial_draft",
     "minimal_safety_guard": true
   },
   "raw_text_sent_to_extraction_llm": true,
@@ -60,8 +69,14 @@
   "raw_text_sent_to_report_llm": false,
   "full_chat_history_sent_to_llm": false,
   "complete_financial_profile_sent_to_llm": false,
-  "raw_text_persisted": false,
+  "raw_text_persisted_to_disk": false,
   "raw_text_logged": false,
   "raw_text_written_to_database": false,
-  "raw_text_written_to_localstorage": false
+  "raw_text_written_to_localstorage": false,
+  "m6": {
+    "status": "code_complete_pending_manual_review",
+    "safety_cases": 26,
+    "degradation_verified": true,
+    "privacy_audit": "pending_real_deepseek_and_manual_review"
+  }
 }

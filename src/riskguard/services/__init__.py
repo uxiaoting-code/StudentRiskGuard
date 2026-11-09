@@ -1,6 +1,7 @@
 """Application services."""
 
 from riskguard.services.assessment_service import AssessmentService
+from riskguard.services.chat_memory_store import ChatMemoryStore
 from riskguard.services.conversation_store import (
     ConversationExpired,
     ConversationNotFound,
@@ -14,6 +15,7 @@ from riskguard.services.draft_store import (
     DraftStoreError,
     DraftTurnLimit,
 )
+from riskguard.services.retention import ExpiringStore, RetentionSweeper
 from riskguard.services.scenario_store import (
     ScenarioExpired,
     ScenarioNotFound,
@@ -31,6 +33,7 @@ from riskguard.services.session_store import (
 
 __all__ = [
     "AssessmentService",
+    "ChatMemoryStore",
     "ConversationExpired",
     "ConversationNotFound",
     "ConversationStore",
@@ -40,6 +43,8 @@ __all__ = [
     "DraftStore",
     "DraftStoreError",
     "DraftTurnLimit",
+    "ExpiringStore",
+    "RetentionSweeper",
     "ScenarioExpired",
     "ScenarioNotFound",
     "ScenarioRecord",

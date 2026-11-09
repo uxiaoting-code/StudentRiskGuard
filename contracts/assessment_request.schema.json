@@ -98,8 +98,7 @@
         "label",
         "remaining_principal",
         "monthly_payment",
-        "remaining_periods",
-        "nominal_apr"
+        "remaining_periods"
       ],
       "properties": {
         "id": {
@@ -128,9 +127,17 @@
           "maximum": 120
         },
         "nominal_apr": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
+          "anyOf": [
+            {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       }
     },

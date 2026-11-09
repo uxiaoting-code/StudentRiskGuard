@@ -7,11 +7,12 @@ after a confirmed assessment.
 
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta, timezone
 from threading import RLock
 from typing import Callable
 
-from riskguard.agent.schemas import AssessmentDraft, DraftState
+from riskguard.models.memory import AssessmentDraft, DraftState
 
 
 class DraftStoreError(Exception):
@@ -36,15 +37,20 @@ class DraftStore:
     def __init__(
         self,
         ttl_seconds: int = 1800,
-        max_clarification_turns: int = 3,
+        max_clarification_turns: int | None = None,
         clock: Callable[[], datetime] | None = None,
     ) -> None:
         if ttl_seconds <= 0:
             raise ValueError("ttl_seconds must be greater than zero")
-        if max_clarification_turns < 1:
-            raise ValueError("max_clarification_turns must be positive")
+        maximum = (
+            max_clarification_turns
+            if max_clarification_turns is not None
+            else int(os.getenv("MAX_CLARIFICATION_TURNS", "8"))
+        )
+        if not 1 <= maximum <= 50:
+            raise ValueError("max_clarification_turns must be between 1 and 50")
         self.ttl_seconds = ttl_seconds
-        self.max_clarification_turns = max_clarification_turns
+        self.max_clarification_turns = maximum
         self._ttl = timedelta(seconds=ttl_seconds)
         self._clock = clock or (lambda: datetime.now(timezone.utc))
         self._drafts: dict[str, DraftState] = {}
@@ -73,7 +79,9 @@ class DraftStore:
         draft: AssessmentDraft,
         missing_fields: list[str],
         pending_question: str | None,
-        clarification_turns: int = 1,
+        current_debt_index: int | None = None,
+        current_debt_label: str | None = None,
+        clarification_turns: int = 0,
     ) -> DraftState:
         now = self._now()
         if clarification_turns > self.max_clarification_turns:
@@ -87,6 +95,8 @@ class DraftStore:
                 draft=draft,
                 missing_fields=missing_fields,
                 pending_question=pending_question,
+                current_debt_index=current_debt_index,
+                current_debt_label=current_debt_label,
                 clarification_turns=clarification_turns,
                 confirmed=False,
                 created_at=now,

@@ -284,7 +284,7 @@ LLM_TIMEOUT_SECONDS=30
 
 - `monthly_disposable_allowance`：每月稳定可支配生活费，已扣除必要支出。
 - `monthly_part_time_income`：每月兼职收入。
-- 分期数组：`label`、`remaining_principal`、`monthly_payment`、`remaining_periods`、`nominal_apr`。
+- 分期数组：`label`、`remaining_principal`、`monthly_payment`、`remaining_periods`、`nominal_apr`；最后一项可为 `null`。
 - `forecast_months`：默认 12。
 
 ### 9.2 基础公式

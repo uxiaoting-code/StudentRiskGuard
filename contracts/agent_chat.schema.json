@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_chat.schema.json",
-  "title": "M4-B Agent Chat Contracts",
+  "title": "M5.7.1 Agent Chat Contracts",
   "$defs": {
     "AgentChatRequest": {
       "additionalProperties": false,
@@ -36,596 +36,6 @@
       "type": "object"
     },
     "AgentChatResponse": {
-      "$defs": {
-        "AgentError": {
-          "additionalProperties": false,
-          "properties": {
-            "code": {
-              "minLength": 1,
-              "title": "Code",
-              "type": "string"
-            },
-            "message": {
-              "minLength": 1,
-              "title": "Message",
-              "type": "string"
-            }
-          },
-          "required": [
-            "code",
-            "message"
-          ],
-          "title": "AgentError",
-          "type": "object"
-        },
-        "AssessmentAssumptions": {
-          "additionalProperties": false,
-          "properties": {
-            "currency": {
-              "const": "CNY",
-              "title": "Currency",
-              "type": "string"
-            },
-            "income_constant": {
-              "title": "Income Constant",
-              "type": "boolean"
-            },
-            "forecast_months": {
-              "maximum": 36,
-              "minimum": 1,
-              "title": "Forecast Months",
-              "type": "integer"
-            }
-          },
-          "required": [
-            "currency",
-            "income_constant",
-            "forecast_months"
-          ],
-          "title": "AssessmentAssumptions",
-          "type": "object"
-        },
-        "AssessmentMetrics": {
-          "additionalProperties": false,
-          "properties": {
-            "income_total": {
-              "minimum": 0,
-              "title": "Income Total",
-              "type": "number"
-            },
-            "monthly_payment_total": {
-              "minimum": 0,
-              "title": "Monthly Payment Total",
-              "type": "number"
-            },
-            "debt_to_income_ratio": {
-              "minimum": 0,
-              "title": "Debt To Income Ratio",
-              "type": "number"
-            },
-            "remaining_debt_total": {
-              "minimum": 0,
-              "title": "Remaining Debt Total",
-              "type": "number"
-            },
-            "debt_count": {
-              "minimum": 0,
-              "title": "Debt Count",
-              "type": "integer"
-            },
-            "monthly_surplus": {
-              "title": "Monthly Surplus",
-              "type": "number"
-            },
-            "surplus_ratio": {
-              "title": "Surplus Ratio",
-              "type": "number"
-            }
-          },
-          "required": [
-            "income_total",
-            "monthly_payment_total",
-            "debt_to_income_ratio",
-            "remaining_debt_total",
-            "debt_count",
-            "monthly_surplus",
-            "surplus_ratio"
-          ],
-          "title": "AssessmentMetrics",
-          "type": "object"
-        },
-        "AssessmentResult": {
-          "additionalProperties": false,
-          "properties": {
-            "assessment_id": {
-              "minLength": 1,
-              "title": "Assessment Id",
-              "type": "string"
-            },
-            "request_id": {
-              "minLength": 1,
-              "title": "Request Id",
-              "type": "string"
-            },
-            "model_version": {
-              "minLength": 1,
-              "title": "Model Version",
-              "type": "string"
-            },
-            "parameter_version": {
-              "minLength": 1,
-              "title": "Parameter Version",
-              "type": "string"
-            },
-            "metrics": {
-              "$ref": "#/$defs/AssessmentMetrics"
-            },
-            "irr_results": {
-              "items": {
-                "$ref": "#/$defs/IrrResult"
-              },
-              "maxItems": 20,
-              "title": "Irr Results",
-              "type": "array"
-            },
-            "risk": {
-              "$ref": "#/$defs/RiskAssessment"
-            },
-            "cashflow_series": {
-              "items": {
-                "$ref": "#/$defs/CashflowPoint"
-              },
-              "maxItems": 36,
-              "minItems": 1,
-              "title": "Cashflow Series",
-              "type": "array"
-            },
-            "warnings": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Warnings",
-              "type": "array"
-            },
-            "assumptions": {
-              "$ref": "#/$defs/AssessmentAssumptions"
-            }
-          },
-          "required": [
-            "assessment_id",
-            "request_id",
-            "model_version",
-            "parameter_version",
-            "metrics",
-            "irr_results",
-            "risk",
-            "cashflow_series",
-            "warnings",
-            "assumptions"
-          ],
-          "title": "AssessmentResult",
-          "type": "object"
-        },
-        "CashflowPoint": {
-          "additionalProperties": false,
-          "properties": {
-            "month_index": {
-              "minimum": 1,
-              "title": "Month Index",
-              "type": "integer"
-            },
-            "income": {
-              "minimum": 0,
-              "title": "Income",
-              "type": "number"
-            },
-            "debt_payment": {
-              "minimum": 0,
-              "title": "Debt Payment",
-              "type": "number"
-            },
-            "surplus": {
-              "title": "Surplus",
-              "type": "number"
-            },
-            "cumulative_surplus": {
-              "title": "Cumulative Surplus",
-              "type": "number"
-            }
-          },
-          "required": [
-            "month_index",
-            "income",
-            "debt_payment",
-            "surplus",
-            "cumulative_surplus"
-          ],
-          "title": "CashflowPoint",
-          "type": "object"
-        },
-        "EducationAnswer": {
-          "additionalProperties": false,
-          "properties": {
-            "answer": {
-              "maxLength": 1200,
-              "minLength": 1,
-              "title": "Answer",
-              "type": "string"
-            },
-            "topic_ids": {
-              "items": {
-                "type": "string"
-              },
-              "minItems": 1,
-              "title": "Topic Ids",
-              "type": "array"
-            },
-            "boundary_notice": {
-              "const": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。",
-              "default": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。",
-              "title": "Boundary Notice",
-              "type": "string"
-            },
-            "review_status": {
-              "default": "pending",
-              "enum": [
-                "pending",
-                "approved"
-              ],
-              "title": "Review Status",
-              "type": "string"
-            }
-          },
-          "required": [
-            "answer",
-            "topic_ids"
-          ],
-          "title": "EducationAnswer",
-          "type": "object"
-        },
-        "Explanation": {
-          "additionalProperties": false,
-          "properties": {
-            "summary": {
-              "maxLength": 240,
-              "title": "Summary",
-              "type": "string"
-            },
-            "risk_sources": {
-              "items": {
-                "$ref": "#/$defs/RiskSource"
-              },
-              "maxItems": 4,
-              "minItems": 1,
-              "title": "Risk Sources",
-              "type": "array"
-            },
-            "actions": {
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 5,
-              "minItems": 2,
-              "title": "Actions",
-              "type": "array"
-            },
-            "education": {
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 4,
-              "minItems": 1,
-              "title": "Education",
-              "type": "array"
-            },
-            "questions_to_consider": {
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 4,
-              "minItems": 1,
-              "title": "Questions To Consider",
-              "type": "array"
-            },
-            "boundary_notice": {
-              "const": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。",
-              "title": "Boundary Notice",
-              "type": "string"
-            }
-          },
-          "required": [
-            "summary",
-            "risk_sources",
-            "actions",
-            "education",
-            "questions_to_consider",
-            "boundary_notice"
-          ],
-          "title": "Explanation",
-          "type": "object"
-        },
-        "IrrResult": {
-          "additionalProperties": false,
-          "properties": {
-            "debt_id": {
-              "minLength": 1,
-              "title": "Debt Id",
-              "type": "string"
-            },
-            "monthly_irr": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Irr"
-            },
-            "annualized_irr": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Annualized Irr"
-            },
-            "status": {
-              "enum": [
-                "ok",
-                "unavailable"
-              ],
-              "title": "Status",
-              "type": "string"
-            },
-            "assumption": {
-              "minLength": 1,
-              "title": "Assumption",
-              "type": "string"
-            }
-          },
-          "required": [
-            "debt_id",
-            "status",
-            "assumption"
-          ],
-          "title": "IrrResult",
-          "type": "object"
-        },
-        "RiskAssessment": {
-          "additionalProperties": false,
-          "properties": {
-            "score": {
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Score",
-              "type": "integer"
-            },
-            "level": {
-              "enum": [
-                "低风险",
-                "关注",
-                "中风险",
-                "高风险"
-              ],
-              "title": "Level",
-              "type": "string"
-            },
-            "dimensions": {
-              "items": {
-                "$ref": "#/$defs/RiskDimension"
-              },
-              "maxItems": 4,
-              "minItems": 4,
-              "title": "Dimensions",
-              "type": "array"
-            },
-            "top_contributors": {
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 3,
-              "minItems": 1,
-              "title": "Top Contributors",
-              "type": "array"
-            }
-          },
-          "required": [
-            "score",
-            "level",
-            "dimensions",
-            "top_contributors"
-          ],
-          "title": "RiskAssessment",
-          "type": "object"
-        },
-        "RiskDimension": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "enum": [
-                "debt_to_income",
-                "debt_stack",
-                "real_cost",
-                "behavior_resilience"
-              ],
-              "title": "Id",
-              "type": "string"
-            },
-            "raw_value": {
-              "title": "Raw Value",
-              "type": "number"
-            },
-            "score": {
-              "minimum": 0,
-              "title": "Score",
-              "type": "number"
-            },
-            "max_score": {
-              "exclusiveMinimum": 0,
-              "title": "Max Score",
-              "type": "number"
-            },
-            "weight": {
-              "maximum": 1,
-              "minimum": 0,
-              "title": "Weight",
-              "type": "number"
-            },
-            "contribution": {
-              "minimum": 0,
-              "title": "Contribution",
-              "type": "number"
-            }
-          },
-          "required": [
-            "id",
-            "raw_value",
-            "score",
-            "max_score",
-            "weight",
-            "contribution"
-          ],
-          "title": "RiskDimension",
-          "type": "object"
-        },
-        "RiskSource": {
-          "additionalProperties": false,
-          "properties": {
-            "dimension_id": {
-              "minLength": 1,
-              "title": "Dimension Id",
-              "type": "string"
-            },
-            "title": {
-              "minLength": 1,
-              "title": "Title",
-              "type": "string"
-            },
-            "detail": {
-              "minLength": 1,
-              "title": "Detail",
-              "type": "string"
-            }
-          },
-          "required": [
-            "dimension_id",
-            "title",
-            "detail"
-          ],
-          "title": "RiskSource",
-          "type": "object"
-        },
-        "ScenarioSimulationResult": {
-          "additionalProperties": false,
-          "properties": {
-            "scenario_id": {
-              "minLength": 1,
-              "title": "Scenario Id",
-              "type": "string"
-            },
-            "base_assessment": {
-              "$ref": "#/$defs/AssessmentResult"
-            },
-            "scenario_assessment": {
-              "$ref": "#/$defs/AssessmentResult"
-            },
-            "monthly_payment_delta": {
-              "title": "Monthly Payment Delta",
-              "type": "number"
-            },
-            "monthly_surplus_delta": {
-              "title": "Monthly Surplus Delta",
-              "type": "number"
-            },
-            "risk_score_delta": {
-              "title": "Risk Score Delta",
-              "type": "integer"
-            },
-            "risk_level_before": {
-              "enum": [
-                "低风险",
-                "关注",
-                "中风险",
-                "高风险"
-              ],
-              "title": "Risk Level Before",
-              "type": "string"
-            },
-            "risk_level_after": {
-              "enum": [
-                "低风险",
-                "关注",
-                "中风险",
-                "高风险"
-              ],
-              "title": "Risk Level After",
-              "type": "string"
-            }
-          },
-          "required": [
-            "scenario_id",
-            "base_assessment",
-            "scenario_assessment",
-            "monthly_payment_delta",
-            "monthly_surplus_delta",
-            "risk_score_delta",
-            "risk_level_before",
-            "risk_level_after"
-          ],
-          "title": "ScenarioSimulationResult",
-          "type": "object"
-        },
-        "ToolActivity": {
-          "additionalProperties": false,
-          "properties": {
-            "tool": {
-              "minLength": 1,
-              "title": "Tool",
-              "type": "string"
-            },
-            "status": {
-              "enum": [
-                "succeeded",
-                "failed",
-                "skipped"
-              ],
-              "title": "Status",
-              "type": "string"
-            },
-            "latency_ms": {
-              "minimum": 0,
-              "title": "Latency Ms",
-              "type": "number"
-            },
-            "error_code": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Error Code"
-            }
-          },
-          "required": [
-            "tool",
-            "status",
-            "latency_ms"
-          ],
-          "title": "ToolActivity",
-          "type": "object"
-        }
-      },
       "additionalProperties": false,
       "properties": {
         "conversation_id": {
@@ -642,6 +52,7 @@
             "education_answer",
             "completed",
             "out_of_scope",
+            "clarification_limit",
             "error"
           ],
           "title": "Status",
@@ -658,6 +69,27 @@
           },
           "title": "Missing Fields",
           "type": "array"
+        },
+        "clarification_turns": {
+          "default": 0,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Clarification Turns",
+          "type": "integer"
+        },
+        "max_clarification_turns": {
+          "default": 8,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Clarification Turns",
+          "type": "integer"
+        },
+        "remaining_clarification_turns": {
+          "default": 8,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Remaining Clarification Turns",
+          "type": "integer"
         },
         "preview": {
           "anyOf": [
@@ -723,6 +155,13 @@
           "title": "Tool Activity",
           "type": "array"
         },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
         "review_status": {
           "anyOf": [
             {
@@ -759,6 +198,212 @@
       "title": "AgentChatResponse",
       "type": "object"
     },
+    "AgentError": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "minLength": 1,
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "message"
+      ],
+      "title": "AgentError",
+      "type": "object"
+    },
+    "AssessmentAssumptions": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "const": "CNY",
+          "title": "Currency",
+          "type": "string"
+        },
+        "income_constant": {
+          "title": "Income Constant",
+          "type": "boolean"
+        },
+        "forecast_months": {
+          "maximum": 36,
+          "minimum": 1,
+          "title": "Forecast Months",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "currency",
+        "income_constant",
+        "forecast_months"
+      ],
+      "title": "AssessmentAssumptions",
+      "type": "object"
+    },
+    "AssessmentMetrics": {
+      "additionalProperties": false,
+      "properties": {
+        "income_total": {
+          "minimum": 0,
+          "title": "Income Total",
+          "type": "number"
+        },
+        "monthly_payment_total": {
+          "minimum": 0,
+          "title": "Monthly Payment Total",
+          "type": "number"
+        },
+        "debt_to_income_ratio": {
+          "minimum": 0,
+          "title": "Debt To Income Ratio",
+          "type": "number"
+        },
+        "remaining_debt_total": {
+          "minimum": 0,
+          "title": "Remaining Debt Total",
+          "type": "number"
+        },
+        "debt_count": {
+          "minimum": 0,
+          "title": "Debt Count",
+          "type": "integer"
+        },
+        "monthly_surplus": {
+          "title": "Monthly Surplus",
+          "type": "number"
+        },
+        "surplus_ratio": {
+          "title": "Surplus Ratio",
+          "type": "number"
+        }
+      },
+      "required": [
+        "income_total",
+        "monthly_payment_total",
+        "debt_to_income_ratio",
+        "remaining_debt_total",
+        "debt_count",
+        "monthly_surplus",
+        "surplus_ratio"
+      ],
+      "title": "AssessmentMetrics",
+      "type": "object"
+    },
+    "AssessmentResult": {
+      "additionalProperties": false,
+      "properties": {
+        "assessment_id": {
+          "minLength": 1,
+          "title": "Assessment Id",
+          "type": "string"
+        },
+        "request_id": {
+          "minLength": 1,
+          "title": "Request Id",
+          "type": "string"
+        },
+        "model_version": {
+          "minLength": 1,
+          "title": "Model Version",
+          "type": "string"
+        },
+        "parameter_version": {
+          "minLength": 1,
+          "title": "Parameter Version",
+          "type": "string"
+        },
+        "metrics": {
+          "$ref": "#/$defs/AssessmentMetrics"
+        },
+        "irr_results": {
+          "items": {
+            "$ref": "#/$defs/IrrResult"
+          },
+          "maxItems": 20,
+          "title": "Irr Results",
+          "type": "array"
+        },
+        "risk": {
+          "$ref": "#/$defs/RiskAssessment"
+        },
+        "cashflow_series": {
+          "items": {
+            "$ref": "#/$defs/CashflowPoint"
+          },
+          "maxItems": 36,
+          "minItems": 1,
+          "title": "Cashflow Series",
+          "type": "array"
+        },
+        "warnings": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Warnings",
+          "type": "array"
+        },
+        "assumptions": {
+          "$ref": "#/$defs/AssessmentAssumptions"
+        }
+      },
+      "required": [
+        "assessment_id",
+        "request_id",
+        "model_version",
+        "parameter_version",
+        "metrics",
+        "irr_results",
+        "risk",
+        "cashflow_series",
+        "warnings",
+        "assumptions"
+      ],
+      "title": "AssessmentResult",
+      "type": "object"
+    },
+    "CashflowPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "month_index": {
+          "minimum": 1,
+          "title": "Month Index",
+          "type": "integer"
+        },
+        "income": {
+          "minimum": 0,
+          "title": "Income",
+          "type": "number"
+        },
+        "debt_payment": {
+          "minimum": 0,
+          "title": "Debt Payment",
+          "type": "number"
+        },
+        "surplus": {
+          "title": "Surplus",
+          "type": "number"
+        },
+        "cumulative_surplus": {
+          "title": "Cumulative Surplus",
+          "type": "number"
+        }
+      },
+      "required": [
+        "month_index",
+        "income",
+        "debt_payment",
+        "surplus",
+        "cumulative_surplus"
+      ],
+      "title": "CashflowPoint",
+      "type": "object"
+    },
     "ConversationState": {
       "additionalProperties": false,
       "properties": {
@@ -783,17 +428,39 @@
           "default": null,
           "title": "Session Id"
         },
-        "current_intent": {
+        "active_task": {
           "anyOf": [
             {
               "enum": [
-                "assessment_intake",
-                "clarification",
-                "risk_explanation",
-                "education",
-                "scenario_simulation",
-                "out_of_scope"
+                "intake",
+                "scenario"
               ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Task"
+        },
+        "active_scenario_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active Scenario Id"
+        },
+        "current_intent": {
+          "anyOf": [
+            {
               "type": "string"
             },
             {
@@ -853,7 +520,7 @@
         },
         "clarification_turns": {
           "default": 0,
-          "maximum": 3,
+          "maximum": 50,
           "minimum": 0,
           "title": "Clarification Turns",
           "type": "integer"
@@ -899,6 +566,15 @@
           "title": "Answer",
           "type": "string"
         },
+        "source_excerpts": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Source Excerpts",
+          "type": "array"
+        },
         "topic_ids": {
           "items": {
             "type": "string"
@@ -925,6 +601,7 @@
       },
       "required": [
         "answer",
+        "source_excerpts",
         "topic_ids"
       ],
       "title": "EducationAnswer",
@@ -988,6 +665,279 @@
         "key_points"
       ],
       "title": "EducationCard",
+      "type": "object"
+    },
+    "EducationSelection": {
+      "additionalProperties": false,
+      "description": "Model output is limited to selecting reviewed card source items.",
+      "properties": {
+        "topic_id": {
+          "minLength": 1,
+          "title": "Topic Id",
+          "type": "string"
+        },
+        "key_point_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Key Point Indices",
+          "type": "array"
+        },
+        "action_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1,
+          "title": "Action Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "topic_id",
+        "key_point_indices"
+      ],
+      "title": "EducationSelection",
+      "type": "object"
+    },
+    "Explanation": {
+      "additionalProperties": false,
+      "properties": {
+        "summary": {
+          "maxLength": 240,
+          "title": "Summary",
+          "type": "string"
+        },
+        "risk_sources": {
+          "items": {
+            "$ref": "#/$defs/RiskSource"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Risk Sources",
+          "type": "array"
+        },
+        "actions": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 5,
+          "minItems": 2,
+          "title": "Actions",
+          "type": "array"
+        },
+        "education": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Education",
+          "type": "array"
+        },
+        "questions_to_consider": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 4,
+          "minItems": 1,
+          "title": "Questions To Consider",
+          "type": "array"
+        },
+        "boundary_notice": {
+          "const": "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。",
+          "title": "Boundary Notice",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "risk_sources",
+        "actions",
+        "education",
+        "questions_to_consider",
+        "boundary_notice"
+      ],
+      "title": "Explanation",
+      "type": "object"
+    },
+    "IrrResult": {
+      "additionalProperties": false,
+      "properties": {
+        "debt_id": {
+          "minLength": 1,
+          "title": "Debt Id",
+          "type": "string"
+        },
+        "monthly_irr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Irr"
+        },
+        "annualized_irr": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Annualized Irr"
+        },
+        "status": {
+          "enum": [
+            "ok",
+            "unavailable"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "assumption": {
+          "minLength": 1,
+          "title": "Assumption",
+          "type": "string"
+        }
+      },
+      "required": [
+        "debt_id",
+        "status",
+        "assumption"
+      ],
+      "title": "IrrResult",
+      "type": "object"
+    },
+    "RiskAssessment": {
+      "additionalProperties": false,
+      "properties": {
+        "score": {
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Score",
+          "type": "integer"
+        },
+        "level": {
+          "enum": [
+            "低风险",
+            "关注",
+            "中风险",
+            "高风险"
+          ],
+          "title": "Level",
+          "type": "string"
+        },
+        "dimensions": {
+          "items": {
+            "$ref": "#/$defs/RiskDimension"
+          },
+          "maxItems": 4,
+          "minItems": 4,
+          "title": "Dimensions",
+          "type": "array"
+        },
+        "top_contributors": {
+          "items": {
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Top Contributors",
+          "type": "array"
+        }
+      },
+      "required": [
+        "score",
+        "level",
+        "dimensions",
+        "top_contributors"
+      ],
+      "title": "RiskAssessment",
+      "type": "object"
+    },
+    "RiskDimension": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "enum": [
+            "debt_to_income",
+            "debt_stack",
+            "real_cost",
+            "behavior_resilience"
+          ],
+          "title": "Id",
+          "type": "string"
+        },
+        "raw_value": {
+          "title": "Raw Value",
+          "type": "number"
+        },
+        "score": {
+          "minimum": 0,
+          "title": "Score",
+          "type": "number"
+        },
+        "max_score": {
+          "exclusiveMinimum": 0,
+          "title": "Max Score",
+          "type": "number"
+        },
+        "weight": {
+          "maximum": 1,
+          "minimum": 0,
+          "title": "Weight",
+          "type": "number"
+        },
+        "contribution": {
+          "minimum": 0,
+          "title": "Contribution",
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "raw_value",
+        "score",
+        "max_score",
+        "weight",
+        "contribution"
+      ],
+      "title": "RiskDimension",
+      "type": "object"
+    },
+    "RiskSource": {
+      "additionalProperties": false,
+      "properties": {
+        "dimension_id": {
+          "minLength": 1,
+          "title": "Dimension Id",
+          "type": "string"
+        },
+        "title": {
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        },
+        "detail": {
+          "minLength": 1,
+          "title": "Detail",
+          "type": "string"
+        }
+      },
+      "required": [
+        "dimension_id",
+        "title",
+        "detail"
+      ],
+      "title": "RiskSource",
       "type": "object"
     },
     "ScenarioDraft": {
@@ -1068,85 +1018,6 @@
       "type": "object"
     },
     "ScenarioExtractionResult": {
-      "$defs": {
-        "ScenarioDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "label": {
-              "anyOf": [
-                {
-                  "maxLength": 30,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "remaining_principal": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 1000000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Principal"
-            },
-            "monthly_payment": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 100000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Payment"
-            },
-            "remaining_periods": {
-              "anyOf": [
-                {
-                  "maximum": 120,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Periods"
-            },
-            "nominal_apr": {
-              "anyOf": [
-                {
-                  "maximum": 1,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Nominal Apr"
-            }
-          },
-          "title": "ScenarioDraft",
-          "type": "object"
-        }
-      },
       "additionalProperties": false,
       "properties": {
         "status": {
@@ -1204,344 +1075,6 @@
       "type": "object"
     },
     "ScenarioSimulationResult": {
-      "$defs": {
-        "AssessmentAssumptions": {
-          "additionalProperties": false,
-          "properties": {
-            "currency": {
-              "const": "CNY",
-              "title": "Currency",
-              "type": "string"
-            },
-            "income_constant": {
-              "title": "Income Constant",
-              "type": "boolean"
-            },
-            "forecast_months": {
-              "maximum": 36,
-              "minimum": 1,
-              "title": "Forecast Months",
-              "type": "integer"
-            }
-          },
-          "required": [
-            "currency",
-            "income_constant",
-            "forecast_months"
-          ],
-          "title": "AssessmentAssumptions",
-          "type": "object"
-        },
-        "AssessmentMetrics": {
-          "additionalProperties": false,
-          "properties": {
-            "income_total": {
-              "minimum": 0,
-              "title": "Income Total",
-              "type": "number"
-            },
-            "monthly_payment_total": {
-              "minimum": 0,
-              "title": "Monthly Payment Total",
-              "type": "number"
-            },
-            "debt_to_income_ratio": {
-              "minimum": 0,
-              "title": "Debt To Income Ratio",
-              "type": "number"
-            },
-            "remaining_debt_total": {
-              "minimum": 0,
-              "title": "Remaining Debt Total",
-              "type": "number"
-            },
-            "debt_count": {
-              "minimum": 0,
-              "title": "Debt Count",
-              "type": "integer"
-            },
-            "monthly_surplus": {
-              "title": "Monthly Surplus",
-              "type": "number"
-            },
-            "surplus_ratio": {
-              "title": "Surplus Ratio",
-              "type": "number"
-            }
-          },
-          "required": [
-            "income_total",
-            "monthly_payment_total",
-            "debt_to_income_ratio",
-            "remaining_debt_total",
-            "debt_count",
-            "monthly_surplus",
-            "surplus_ratio"
-          ],
-          "title": "AssessmentMetrics",
-          "type": "object"
-        },
-        "AssessmentResult": {
-          "additionalProperties": false,
-          "properties": {
-            "assessment_id": {
-              "minLength": 1,
-              "title": "Assessment Id",
-              "type": "string"
-            },
-            "request_id": {
-              "minLength": 1,
-              "title": "Request Id",
-              "type": "string"
-            },
-            "model_version": {
-              "minLength": 1,
-              "title": "Model Version",
-              "type": "string"
-            },
-            "parameter_version": {
-              "minLength": 1,
-              "title": "Parameter Version",
-              "type": "string"
-            },
-            "metrics": {
-              "$ref": "#/$defs/AssessmentMetrics"
-            },
-            "irr_results": {
-              "items": {
-                "$ref": "#/$defs/IrrResult"
-              },
-              "maxItems": 20,
-              "title": "Irr Results",
-              "type": "array"
-            },
-            "risk": {
-              "$ref": "#/$defs/RiskAssessment"
-            },
-            "cashflow_series": {
-              "items": {
-                "$ref": "#/$defs/CashflowPoint"
-              },
-              "maxItems": 36,
-              "minItems": 1,
-              "title": "Cashflow Series",
-              "type": "array"
-            },
-            "warnings": {
-              "items": {
-                "type": "string"
-              },
-              "title": "Warnings",
-              "type": "array"
-            },
-            "assumptions": {
-              "$ref": "#/$defs/AssessmentAssumptions"
-            }
-          },
-          "required": [
-            "assessment_id",
-            "request_id",
-            "model_version",
-            "parameter_version",
-            "metrics",
-            "irr_results",
-            "risk",
-            "cashflow_series",
-            "warnings",
-            "assumptions"
-          ],
-          "title": "AssessmentResult",
-          "type": "object"
-        },
-        "CashflowPoint": {
-          "additionalProperties": false,
-          "properties": {
-            "month_index": {
-              "minimum": 1,
-              "title": "Month Index",
-              "type": "integer"
-            },
-            "income": {
-              "minimum": 0,
-              "title": "Income",
-              "type": "number"
-            },
-            "debt_payment": {
-              "minimum": 0,
-              "title": "Debt Payment",
-              "type": "number"
-            },
-            "surplus": {
-              "title": "Surplus",
-              "type": "number"
-            },
-            "cumulative_surplus": {
-              "title": "Cumulative Surplus",
-              "type": "number"
-            }
-          },
-          "required": [
-            "month_index",
-            "income",
-            "debt_payment",
-            "surplus",
-            "cumulative_surplus"
-          ],
-          "title": "CashflowPoint",
-          "type": "object"
-        },
-        "IrrResult": {
-          "additionalProperties": false,
-          "properties": {
-            "debt_id": {
-              "minLength": 1,
-              "title": "Debt Id",
-              "type": "string"
-            },
-            "monthly_irr": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Irr"
-            },
-            "annualized_irr": {
-              "anyOf": [
-                {
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Annualized Irr"
-            },
-            "status": {
-              "enum": [
-                "ok",
-                "unavailable"
-              ],
-              "title": "Status",
-              "type": "string"
-            },
-            "assumption": {
-              "minLength": 1,
-              "title": "Assumption",
-              "type": "string"
-            }
-          },
-          "required": [
-            "debt_id",
-            "status",
-            "assumption"
-          ],
-          "title": "IrrResult",
-          "type": "object"
-        },
-        "RiskAssessment": {
-          "additionalProperties": false,
-          "properties": {
-            "score": {
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Score",
-              "type": "integer"
-            },
-            "level": {
-              "enum": [
-                "低风险",
-                "关注",
-                "中风险",
-                "高风险"
-              ],
-              "title": "Level",
-              "type": "string"
-            },
-            "dimensions": {
-              "items": {
-                "$ref": "#/$defs/RiskDimension"
-              },
-              "maxItems": 4,
-              "minItems": 4,
-              "title": "Dimensions",
-              "type": "array"
-            },
-            "top_contributors": {
-              "items": {
-                "type": "string"
-              },
-              "maxItems": 3,
-              "minItems": 1,
-              "title": "Top Contributors",
-              "type": "array"
-            }
-          },
-          "required": [
-            "score",
-            "level",
-            "dimensions",
-            "top_contributors"
-          ],
-          "title": "RiskAssessment",
-          "type": "object"
-        },
-        "RiskDimension": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "enum": [
-                "debt_to_income",
-                "debt_stack",
-                "real_cost",
-                "behavior_resilience"
-              ],
-              "title": "Id",
-              "type": "string"
-            },
-            "raw_value": {
-              "title": "Raw Value",
-              "type": "number"
-            },
-            "score": {
-              "minimum": 0,
-              "title": "Score",
-              "type": "number"
-            },
-            "max_score": {
-              "exclusiveMinimum": 0,
-              "title": "Max Score",
-              "type": "number"
-            },
-            "weight": {
-              "maximum": 1,
-              "minimum": 0,
-              "title": "Weight",
-              "type": "number"
-            },
-            "contribution": {
-              "minimum": 0,
-              "title": "Contribution",
-              "type": "number"
-            }
-          },
-          "required": [
-            "id",
-            "raw_value",
-            "score",
-            "max_score",
-            "weight",
-            "contribution"
-          ],
-          "title": "RiskDimension",
-          "type": "object"
-        }
-      },
       "additionalProperties": false,
       "properties": {
         "scenario_id": {
@@ -1599,6 +1132,49 @@
         "risk_level_after"
       ],
       "title": "ScenarioSimulationResult",
+      "type": "object"
+    },
+    "ToolActivity": {
+      "additionalProperties": false,
+      "properties": {
+        "tool": {
+          "minLength": 1,
+          "title": "Tool",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "succeeded",
+            "failed",
+            "skipped"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "latency_ms": {
+          "minimum": 0,
+          "title": "Latency Ms",
+          "type": "number"
+        },
+        "error_code": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Error Code"
+        }
+      },
+      "required": [
+        "tool",
+        "status",
+        "latency_ms"
+      ],
+      "title": "ToolActivity",
       "type": "object"
     }
   }

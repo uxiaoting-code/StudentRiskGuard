@@ -8,6 +8,8 @@ import streamlit as st
 
 from riskguard.ui.formatting import (
     format_currency,
+    format_debt_name,
+    format_dimension,
     format_rate,
     format_review_status,
     format_risk_level,
@@ -77,10 +79,29 @@ def render_explanation(explanation: dict[str, Any] | None) -> None:
     st.caption(explanation.get("boundary_notice", FIXED_BOUNDARY_NOTICE))
 
 
-def render_assessment(result: dict[str, Any], *, title: str = "风险报告") -> None:
+def render_assessment(
+    result: dict[str, Any],
+    *,
+    title: str = "风险报告",
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     st.subheader(title)
     risk = result.get("risk", {})
     metrics = result.get("metrics", {})
+    risk_level = format_risk_level(risk.get("level"))
+    risk_class = {
+        "低风险": "risk-low",
+        "关注": "risk-watch",
+        "中风险": "risk-medium",
+        "高风险": "risk-high",
+    }.get(risk_level, "risk-watch")
+    st.markdown(
+        f"<div class='srg-risk-banner {risk_class}'>"
+        f"<strong>{risk_level}</strong>"
+        f"<span>风险分数 {risk.get('score', '—')} / 100</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("风险分数", risk.get("score", "—"))
@@ -100,7 +121,7 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
         st.table(
             [
                 {
-                    "维度": item.get("id", ""),
+                    "维度": format_dimension(item.get("id")),
                     "原始值": item.get("raw_value", "—"),
                     "得分": item.get("score", "—"),
                     "最大分": item.get("max_score", "—"),
@@ -118,7 +139,7 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
         st.table(
             [
                 {
-                    "债务 ID": item.get("debt_id", ""),
+                    "债务名称": format_debt_name(item.get("debt_id"), debt_labels),
                     "状态": item.get("status", ""),
                     "月 IRR": (
                         format_rate(item.get("monthly_irr"))
@@ -168,7 +189,11 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
                 st.write(f"- {warning}")
 
 
-def render_agent_response(response: dict[str, Any]) -> None:
+def render_agent_response(
+    response: dict[str, Any],
+    *,
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     status = response.get("status")
     if response.get("degraded"):
         st.warning("智能解读已降级；确定性计算结果仍然可用。")
@@ -180,7 +205,7 @@ def render_agent_response(response: dict[str, Any]) -> None:
         return
 
     if response.get("assessment"):
-        render_assessment(response["assessment"])
+        render_assessment(response["assessment"], debt_labels=debt_labels)
     if response.get("explanation"):
         render_explanation(response["explanation"])
     render_tool_activity(response.get("tool_activity"))
@@ -211,10 +236,26 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
         if debt.get("settled") is True or debt.get("remaining_periods") == 0:
             st.write(f"- {label}：已结清，不参与本次负债压力计算。")
         else:
+            nominal_apr = debt.get("nominal_apr")
+            rate_text = (
+                "名义利率未知，真实成本解释受限"
+                if nominal_apr is None
+                else f"名义利率 {format_rate(nominal_apr)}"
+            )
+            total_text = ""
+            if debt.get("total_remaining_repayment") is not None:
+                total_text = (
+                    f"总共还要还 {format_currency(debt.get('total_remaining_repayment'))}，"
+                )
+            derived_text = ""
+            if "remaining_periods" in (debt.get("derived_fields") or []):
+                derived_text = "（期数由系统根据总还款额和月供计算）"
             st.write(
                 f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
+                f"{total_text}"
                 f"每月约还 {format_currency(debt.get('monthly_payment'))}，"
-                f"还要还 {debt.get('remaining_periods', '—')} 个月。"
+                f"还要还 {debt.get('remaining_periods', '—')} 个月{derived_text}；"
+                f"{rate_text}。"
             )
 
     subscriptions = preview.get("recurring_subscriptions") or []
@@ -236,6 +277,11 @@ def render_education_answer(response: dict[str, Any]) -> None:
     topic_ids = education.get("topic_ids", [])
     if topic_ids:
         st.caption("主题：" + "、".join(str(item) for item in topic_ids))
+    sources = education.get("source_excerpts", [])
+    if sources:
+        with st.expander("内容来源"):
+            for source in sources:
+                st.write(f"- {source}")
     st.caption(
         "内容审核状态："
         + format_review_status(
@@ -291,14 +337,45 @@ def render_scenario(result: dict[str, Any]) -> None:
     )
 
 
-def render_chat_response(response: dict[str, Any]) -> None:
+def render_chat_response(
+    response: dict[str, Any],
+    *,
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     status = response.get("status")
     if status == "needs_more_info":
         st.warning(response.get("reply", "还需要补充一点信息。"))
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        remaining = response.get("remaining_clarification_turns")
+        if used is not None and maximum is not None and remaining is not None:
+            st.caption(
+                f"已使用 {used}/{maximum} 轮补充，还可以补充 {remaining} 轮信息。"
+            )
+        return
+
+    if status == "clarification_limit":
+        st.warning(
+            response.get(
+                "reply",
+                "我已经记录了你目前提供的信息。你可以改用结构化表单继续补充，或者重新开始。",
+            )
+        )
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        if used is not None and maximum is not None:
+            st.caption(
+                f"本次对话已使用 {used}/{maximum} 轮补充。"
+                "原草稿仍保留在内存中，但不会继续调用模型追问。"
+            )
         return
 
     if status == "ready_for_confirmation":
         st.success(response.get("reply", "信息已整理完成。"))
+        used = response.get("clarification_turns")
+        maximum = response.get("max_clarification_turns")
+        if used is not None and maximum is not None:
+            st.caption(f"已使用 {used}/{maximum} 轮补充。")
         render_intake_preview(response.get("preview"))
         return
 
@@ -320,7 +397,7 @@ def render_chat_response(response: dict[str, Any]) -> None:
         if response.get("scenario"):
             render_scenario(response["scenario"])
         if response.get("assessment"):
-            render_assessment(response["assessment"])
+            render_assessment(response["assessment"], debt_labels=debt_labels)
         if response.get("explanation"):
             render_explanation(response["explanation"])
         render_tool_activity(response.get("tool_activity"))

@@ -370,6 +370,68 @@ out_of_scope
 - 情景模拟不修改原始会话；
 - 报告模型仍然只接收 `AssessmentResult`，不接收原始自然语言。
 
-科普 Prompt 必须只基于卡片内容回答，不能新增卡片外的金融事实，不能推荐平台、品牌、产品或投资机会，不能承诺收益或解决债务。当前所有教育卡片标记为 `review_status=pending`，经济统计审核后才能改为 `approved`。
+科普 Prompt 只允许模型选择卡片 `key_points` 和 `allowed_actions` 的编号，后端校验编号后逐字组装答案和 `source_excerpts`。模型不能生成自由文本，也不能新增卡片外的金融事实、建议或数字。当前所有教育卡片标记为 `review_status=pending`，经济统计审核后才能改为 `approved`。
 
 M4-B 增加最小安全校验：借贷平台、审批、授信额度、通过率、放款、以贷养贷、收益承诺等违规表达触发安全降级或越界回复。
+## 14. M5.6 有界上下文与追问规范
+
+### 14.1 信息抽取 Prompt
+
+信息抽取模型只允许接收：
+
+- `user_message`：当前轮用户消息；
+- `existing_draft`：当前结构化草稿；
+- `previous_question`：上一轮尚未回答的问题；
+- ExtractionResult、AssessmentRequest Schema 和固定规则。
+
+Prompt 必须明确要求：
+
+- 不依赖完整聊天历史；
+- 用户纠正时覆盖对应字段，未提到的已知字段保留；
+- 不重复询问已有字段；
+- 不编造金额、期数、利率、订阅费用；
+- 用户明确表示利率未知时返回 `nominal_apr=null`，不得写成 0，也不得继续追问该字段；
+- 已结清记录不进入正式债务；
+- 订阅只进入 `recurring_subscriptions`；
+- 用户可见文字不得出现字段名、JSON key 或数组下标。
+
+### 14.2 报告解释 Prompt
+
+报告解释模型只接收 `AssessmentResult` 和 Explanation Schema，不接收：
+
+- 原始聊天文本；
+- 完整聊天历史；
+- AssessmentDraft；
+- 完整财务档案。
+
+### 14.3 追问轮数
+
+- 首次输入不占轮；
+- 默认首次输入后最多 8 轮补充；
+- 只有返回 `needs_more_info` 的补充轮才计数；
+- 达到上限后不再请求模型，返回 `clarification_limit`；
+- 上限不会创建正式评估会话，也不会覆盖已有结构化草稿。
+
+### 14.4 情景与科普
+
+科普模型只使用当前问题和当前教育卡片；情景模型只使用当前情景描述、当前结构化会话状态和必要 Schema。两者都不得接收完整聊天历史。
+## 15. M5.6 审查修复后的 grounding 规则
+
+- 风险解释模型只负责选择 `AssessmentResult.risk.dimensions` 中存在的维度；
+- 后端丢弃模型自由生成的 summary、risk source、actions、education 和 question 文本；
+- 后端使用固定受控句子重新组装 Explanation；
+- 任意未授权维度、阿拉伯数字或违规表述触发模板降级；
+- 教育问答模型只选择卡片中的 `key_point_indices` 和 `action_indices`；
+- 教育答案由后端从卡片原文逐字组装，非法编号触发模板回退；
+- `/api/v1/agent/chat` 的可恢复错误必须返回真实 4xx，不使用 HTTP 200 伪装错误；
+- 达到 20 笔债务、情景未完成等边界必须在进入 M2 前拦截。
+## 16. M5.7.1 抽取与推导约束
+
+- 抽取模型只负责识别用户当前轮的数字、字段和债务标签；
+- 不得把“总共还要还”填成 `remaining_principal`；
+- 不得自行计算剩余期数；
+- 订阅、自动续费和会员支出只进入 `recurring_subscriptions`；
+- 多笔债务按标签逐笔追问；
+- 会员分期等歧义标签先追问债务类型；
+- 剩余期数由后端确定性代码推导，不能由 LLM 猜测；
+- 不能整除时追问最后一期金额。

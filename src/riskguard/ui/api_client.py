@@ -141,6 +141,9 @@ class ApiClient:
         return result if isinstance(result, list) else []
 
 
+    def delete_conversation(self, conversation_id: str) -> None:
+        self._request("DELETE", f"/api/v1/agent/conversations/{conversation_id}")
+
     def set_access_token(self, token: str | None) -> None:
         self.access_token = token
 

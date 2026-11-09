@@ -1,479 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_intake.schema.json",
-  "title": "M4-A Natural Language Intake Contracts",
+  "title": "M5.7.1 Natural Language Intake Contracts",
   "$defs": {
-    "NaturalLanguageIntakeRequest": {
-      "additionalProperties": false,
-      "description": "One turn of natural-language intake.",
-      "properties": {
-        "conversation_id": {
-          "anyOf": [
-            {
-              "maxLength": 64,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9_-]+$",
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Conversation Id"
-        },
-        "message": {
-          "maxLength": 4000,
-          "minLength": 1,
-          "title": "Message",
-          "type": "string"
-        }
-      },
-      "required": [
-        "message"
-      ],
-      "title": "NaturalLanguageIntakeRequest",
-      "type": "object"
-    },
-    "ConfirmIntakeRequest": {
-      "$defs": {
-        "AssessmentRequest": {
-          "additionalProperties": false,
-          "properties": {
-            "session_id": {
-              "maxLength": 64,
-              "minLength": 1,
-              "pattern": "^[A-Za-z0-9_-]+$",
-              "title": "Session Id",
-              "type": "string"
-            },
-            "income": {
-              "$ref": "#/$defs/Income"
-            },
-            "debts": {
-              "items": {
-                "$ref": "#/$defs/Debt"
-              },
-              "maxItems": 20,
-              "title": "Debts",
-              "type": "array"
-            },
-            "savings_balance": {
-              "default": 0.0,
-              "minimum": 0,
-              "title": "Savings Balance",
-              "type": "number"
-            },
-            "recurring_subscriptions": {
-              "items": {
-                "$ref": "#/$defs/RecurringSubscription"
-              },
-              "title": "Recurring Subscriptions",
-              "type": "array"
-            },
-            "behavior": {
-              "$ref": "#/$defs/BehaviorProfile"
-            },
-            "forecast_months": {
-              "default": 12,
-              "maximum": 36,
-              "minimum": 1,
-              "title": "Forecast Months",
-              "type": "integer"
-            }
-          },
-          "required": [
-            "session_id",
-            "income",
-            "debts"
-          ],
-          "title": "AssessmentRequest",
-          "type": "object"
-        },
-        "BehaviorProfile": {
-          "additionalProperties": false,
-          "description": "Self-reported behavior signals used only by the behavior dimension.",
-          "properties": {
-            "borrow_to_repay": {
-              "default": false,
-              "title": "Borrow To Repay",
-              "type": "boolean"
-            },
-            "strict_overdue_count": {
-              "default": 0,
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Strict Overdue Count",
-              "type": "integer"
-            },
-            "insufficient_months_last_3": {
-              "default": 0,
-              "maximum": 3,
-              "minimum": 0,
-              "title": "Insufficient Months Last 3",
-              "type": "integer"
-            },
-            "income_drop_30_cannot_cover": {
-              "default": false,
-              "title": "Income Drop 30 Cannot Cover",
-              "type": "boolean"
-            },
-            "financial_cognition_score": {
-              "anyOf": [
-                {
-                  "maximum": 5,
-                  "minimum": 1,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Financial Cognition Score"
-            }
-          },
-          "title": "BehaviorProfile",
-          "type": "object"
-        },
-        "Debt": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "maxLength": 32,
-              "minLength": 1,
-              "title": "Id",
-              "type": "string"
-            },
-            "label": {
-              "maxLength": 30,
-              "minLength": 1,
-              "title": "Label",
-              "type": "string"
-            },
-            "remaining_principal": {
-              "exclusiveMinimum": 0,
-              "maximum": 1000000,
-              "title": "Remaining Principal",
-              "type": "number"
-            },
-            "monthly_payment": {
-              "exclusiveMinimum": 0,
-              "maximum": 100000,
-              "title": "Monthly Payment",
-              "type": "number"
-            },
-            "remaining_periods": {
-              "maximum": 120,
-              "minimum": 1,
-              "title": "Remaining Periods",
-              "type": "integer"
-            },
-            "nominal_apr": {
-              "maximum": 1,
-              "minimum": 0,
-              "title": "Nominal Apr",
-              "type": "number"
-            }
-          },
-          "required": [
-            "id",
-            "label",
-            "remaining_principal",
-            "monthly_payment",
-            "remaining_periods",
-            "nominal_apr"
-          ],
-          "title": "Debt",
-          "type": "object"
-        },
-        "Income": {
-          "additionalProperties": false,
-          "properties": {
-            "monthly_disposable_allowance": {
-              "maximum": 1000000,
-              "minimum": 0,
-              "title": "Monthly Disposable Allowance",
-              "type": "number"
-            },
-            "monthly_part_time_income": {
-              "maximum": 1000000,
-              "minimum": 0,
-              "title": "Monthly Part Time Income",
-              "type": "number"
-            }
-          },
-          "required": [
-            "monthly_disposable_allowance",
-            "monthly_part_time_income"
-          ],
-          "title": "Income",
-          "type": "object"
-        },
-        "RecurringSubscription": {
-          "additionalProperties": false,
-          "properties": {
-            "label": {
-              "description": "订阅名称",
-              "minLength": 1,
-              "title": "Label",
-              "type": "string"
-            },
-            "monthly_cost": {
-              "description": "每月扣费金额，单位元",
-              "exclusiveMinimum": 0,
-              "title": "Monthly Cost",
-              "type": "number"
-            }
-          },
-          "required": [
-            "label",
-            "monthly_cost"
-          ],
-          "title": "RecurringSubscription",
-          "type": "object"
-        }
-      },
-      "additionalProperties": false,
-      "description": "Optional user-corrected request used when confirming a draft.",
-      "properties": {
-        "assessment_request": {
-          "anyOf": [
-            {
-              "$ref": "#/$defs/AssessmentRequest"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null
-        }
-      },
-      "title": "ConfirmIntakeRequest",
-      "type": "object"
-    },
     "AssessmentDraft": {
-      "$defs": {
-        "BehaviorProfile": {
-          "additionalProperties": false,
-          "description": "Self-reported behavior signals used only by the behavior dimension.",
-          "properties": {
-            "borrow_to_repay": {
-              "default": false,
-              "title": "Borrow To Repay",
-              "type": "boolean"
-            },
-            "strict_overdue_count": {
-              "default": 0,
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Strict Overdue Count",
-              "type": "integer"
-            },
-            "insufficient_months_last_3": {
-              "default": 0,
-              "maximum": 3,
-              "minimum": 0,
-              "title": "Insufficient Months Last 3",
-              "type": "integer"
-            },
-            "income_drop_30_cannot_cover": {
-              "default": false,
-              "title": "Income Drop 30 Cannot Cover",
-              "type": "boolean"
-            },
-            "financial_cognition_score": {
-              "anyOf": [
-                {
-                  "maximum": 5,
-                  "minimum": 1,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Financial Cognition Score"
-            }
-          },
-          "title": "BehaviorProfile",
-          "type": "object"
-        },
-        "DebtDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "maxLength": 32,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Id"
-            },
-            "label": {
-              "anyOf": [
-                {
-                  "maxLength": 30,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "remaining_principal": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 1000000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Principal"
-            },
-            "monthly_payment": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 100000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Payment"
-            },
-            "remaining_periods": {
-              "anyOf": [
-                {
-                  "maximum": 120,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Periods"
-            },
-            "nominal_apr": {
-              "anyOf": [
-                {
-                  "maximum": 1,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Nominal Apr"
-            },
-            "settled": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Settled"
-            }
-          },
-          "title": "DebtDraft",
-          "type": "object"
-        },
-        "IncomeDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "monthly_disposable_allowance": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Disposable Allowance"
-            },
-            "monthly_part_time_income": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Part Time Income"
-            }
-          },
-          "title": "IncomeDraft",
-          "type": "object"
-        },
-        "RecurringSubscriptionDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "label": {
-              "anyOf": [
-                {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "monthly_cost": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Cost"
-            }
-          },
-          "title": "RecurringSubscriptionDraft",
-          "type": "object"
-        }
-      },
       "additionalProperties": false,
-      "description": "Partial assessment data that can be completed over several turns.",
       "properties": {
         "income": {
           "anyOf": [
@@ -570,39 +101,180 @@
       "title": "AssessmentDraft",
       "type": "object"
     },
-    "IncomeDraft": {
+    "AssessmentRequest": {
       "additionalProperties": false,
       "properties": {
-        "monthly_disposable_allowance": {
-          "anyOf": [
-            {
-              "maximum": 1000000,
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Monthly Disposable Allowance"
+        "session_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Session Id",
+          "type": "string"
         },
-        "monthly_part_time_income": {
-          "anyOf": [
-            {
-              "maximum": 1000000,
-              "minimum": 0,
-              "type": "number"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Monthly Part Time Income"
+        "income": {
+          "$ref": "#/$defs/Income"
+        },
+        "debts": {
+          "items": {
+            "$ref": "#/$defs/Debt"
+          },
+          "maxItems": 20,
+          "title": "Debts",
+          "type": "array"
+        },
+        "savings_balance": {
+          "default": 0.0,
+          "minimum": 0,
+          "title": "Savings Balance",
+          "type": "number"
+        },
+        "recurring_subscriptions": {
+          "items": {
+            "$ref": "#/$defs/RecurringSubscription"
+          },
+          "title": "Recurring Subscriptions",
+          "type": "array"
+        },
+        "behavior": {
+          "$ref": "#/$defs/BehaviorProfile"
+        },
+        "forecast_months": {
+          "default": 12,
+          "maximum": 36,
+          "minimum": 1,
+          "title": "Forecast Months",
+          "type": "integer"
         }
       },
-      "title": "IncomeDraft",
+      "required": [
+        "session_id",
+        "income",
+        "debts"
+      ],
+      "title": "AssessmentRequest",
+      "type": "object"
+    },
+    "BehaviorProfile": {
+      "additionalProperties": false,
+      "description": "Self-reported behavior signals used only by the behavior dimension.",
+      "properties": {
+        "borrow_to_repay": {
+          "default": false,
+          "title": "Borrow To Repay",
+          "type": "boolean"
+        },
+        "strict_overdue_count": {
+          "default": 0,
+          "maximum": 100,
+          "minimum": 0,
+          "title": "Strict Overdue Count",
+          "type": "integer"
+        },
+        "insufficient_months_last_3": {
+          "default": 0,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Insufficient Months Last 3",
+          "type": "integer"
+        },
+        "income_drop_30_cannot_cover": {
+          "default": false,
+          "title": "Income Drop 30 Cannot Cover",
+          "type": "boolean"
+        },
+        "financial_cognition_score": {
+          "anyOf": [
+            {
+              "maximum": 5,
+              "minimum": 1,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Financial Cognition Score"
+        }
+      },
+      "title": "BehaviorProfile",
+      "type": "object"
+    },
+    "ConfirmIntakeRequest": {
+      "additionalProperties": false,
+      "description": "Optional user-corrected request used when confirming a draft.",
+      "properties": {
+        "assessment_request": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/AssessmentRequest"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        }
+      },
+      "title": "ConfirmIntakeRequest",
+      "type": "object"
+    },
+    "Debt": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "maxLength": 32,
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "label": {
+          "maxLength": 30,
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "remaining_principal": {
+          "exclusiveMinimum": 0,
+          "maximum": 1000000,
+          "title": "Remaining Principal",
+          "type": "number"
+        },
+        "monthly_payment": {
+          "exclusiveMinimum": 0,
+          "maximum": 100000,
+          "title": "Monthly Payment",
+          "type": "number"
+        },
+        "remaining_periods": {
+          "maximum": 120,
+          "minimum": 1,
+          "title": "Remaining Periods",
+          "type": "integer"
+        },
+        "nominal_apr": {
+          "anyOf": [
+            {
+              "maximum": 1,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal Apr"
+        }
+      },
+      "required": [
+        "id",
+        "label",
+        "remaining_principal",
+        "monthly_payment",
+        "remaining_periods"
+      ],
+      "title": "Debt",
       "type": "object"
     },
     "DebtDraft": {
@@ -650,6 +322,34 @@
           "default": null,
           "title": "Remaining Principal"
         },
+        "total_remaining_repayment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Remaining Repayment"
+        },
+        "final_payment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 100000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Payment"
+        },
         "monthly_payment": {
           "anyOf": [
             {
@@ -692,6 +392,47 @@
           "default": null,
           "title": "Nominal Apr"
         },
+        "nominal_apr_status": {
+          "anyOf": [
+            {
+              "enum": [
+                "not_mentioned",
+                "unknown",
+                "provided"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Nominal Apr Status"
+        },
+        "derived_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived Fields",
+          "type": "array"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "unknown",
+                "installment",
+                "subscription"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
         "settled": {
           "anyOf": [
             {
@@ -708,13 +449,30 @@
       "title": "DebtDraft",
       "type": "object"
     },
-    "RecurringSubscriptionDraft": {
+    "DraftState": {
       "additionalProperties": false,
       "properties": {
-        "label": {
+        "conversation_id": {
+          "maxLength": 64,
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9_-]+$",
+          "title": "Conversation Id",
+          "type": "string"
+        },
+        "draft": {
+          "$ref": "#/$defs/AssessmentDraft"
+        },
+        "missing_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Missing Fields",
+          "type": "array"
+        },
+        "pending_question": {
           "anyOf": [
             {
-              "minLength": 1,
+              "maxLength": 500,
               "type": "string"
             },
             {
@@ -722,344 +480,67 @@
             }
           ],
           "default": null,
-          "title": "Label"
+          "title": "Pending Question"
         },
-        "monthly_cost": {
+        "current_debt_index": {
           "anyOf": [
             {
-              "exclusiveMinimum": 0,
-              "type": "number"
+              "minimum": 0,
+              "type": "integer"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Monthly Cost"
+          "title": "Current Debt Index"
+        },
+        "current_debt_label": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Debt Label"
+        },
+        "clarification_turns": {
+          "default": 0,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Clarification Turns",
+          "type": "integer"
+        },
+        "confirmed": {
+          "default": false,
+          "title": "Confirmed",
+          "type": "boolean"
+        },
+        "created_at": {
+          "format": "date-time",
+          "title": "Created At",
+          "type": "string"
+        },
+        "expires_at": {
+          "format": "date-time",
+          "title": "Expires At",
+          "type": "string"
         }
       },
-      "title": "RecurringSubscriptionDraft",
+      "required": [
+        "conversation_id",
+        "draft",
+        "created_at",
+        "expires_at"
+      ],
+      "title": "DraftState",
       "type": "object"
     },
     "ExtractionResult": {
-      "$defs": {
-        "AssessmentDraft": {
-          "additionalProperties": false,
-          "description": "Partial assessment data that can be completed over several turns.",
-          "properties": {
-            "income": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/IncomeDraft"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "debts": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/DebtDraft"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Debts"
-            },
-            "no_debts": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "No Debts"
-            },
-            "savings_balance": {
-              "anyOf": [
-                {
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Savings Balance"
-            },
-            "recurring_subscriptions": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/RecurringSubscriptionDraft"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Recurring Subscriptions"
-            },
-            "behavior": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/BehaviorProfile"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "forecast_months": {
-              "anyOf": [
-                {
-                  "maximum": 36,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Forecast Months"
-            }
-          },
-          "title": "AssessmentDraft",
-          "type": "object"
-        },
-        "BehaviorProfile": {
-          "additionalProperties": false,
-          "description": "Self-reported behavior signals used only by the behavior dimension.",
-          "properties": {
-            "borrow_to_repay": {
-              "default": false,
-              "title": "Borrow To Repay",
-              "type": "boolean"
-            },
-            "strict_overdue_count": {
-              "default": 0,
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Strict Overdue Count",
-              "type": "integer"
-            },
-            "insufficient_months_last_3": {
-              "default": 0,
-              "maximum": 3,
-              "minimum": 0,
-              "title": "Insufficient Months Last 3",
-              "type": "integer"
-            },
-            "income_drop_30_cannot_cover": {
-              "default": false,
-              "title": "Income Drop 30 Cannot Cover",
-              "type": "boolean"
-            },
-            "financial_cognition_score": {
-              "anyOf": [
-                {
-                  "maximum": 5,
-                  "minimum": 1,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Financial Cognition Score"
-            }
-          },
-          "title": "BehaviorProfile",
-          "type": "object"
-        },
-        "DebtDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "maxLength": 32,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Id"
-            },
-            "label": {
-              "anyOf": [
-                {
-                  "maxLength": 30,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "remaining_principal": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 1000000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Principal"
-            },
-            "monthly_payment": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 100000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Payment"
-            },
-            "remaining_periods": {
-              "anyOf": [
-                {
-                  "maximum": 120,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Periods"
-            },
-            "nominal_apr": {
-              "anyOf": [
-                {
-                  "maximum": 1,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Nominal Apr"
-            },
-            "settled": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Settled"
-            }
-          },
-          "title": "DebtDraft",
-          "type": "object"
-        },
-        "IncomeDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "monthly_disposable_allowance": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Disposable Allowance"
-            },
-            "monthly_part_time_income": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Part Time Income"
-            }
-          },
-          "title": "IncomeDraft",
-          "type": "object"
-        },
-        "RecurringSubscriptionDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "label": {
-              "anyOf": [
-                {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "monthly_cost": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Cost"
-            }
-          },
-          "title": "RecurringSubscriptionDraft",
-          "type": "object"
-        }
-      },
       "additionalProperties": false,
       "properties": {
         "status": {
@@ -1116,387 +597,62 @@
       "title": "ExtractionResult",
       "type": "object"
     },
-    "DraftState": {
-      "$defs": {
-        "AssessmentDraft": {
-          "additionalProperties": false,
-          "description": "Partial assessment data that can be completed over several turns.",
-          "properties": {
-            "income": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/IncomeDraft"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "debts": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/DebtDraft"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Debts"
-            },
-            "no_debts": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "No Debts"
-            },
-            "savings_balance": {
-              "anyOf": [
-                {
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Savings Balance"
-            },
-            "recurring_subscriptions": {
-              "anyOf": [
-                {
-                  "items": {
-                    "$ref": "#/$defs/RecurringSubscriptionDraft"
-                  },
-                  "type": "array"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Recurring Subscriptions"
-            },
-            "behavior": {
-              "anyOf": [
-                {
-                  "$ref": "#/$defs/BehaviorProfile"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null
-            },
-            "forecast_months": {
-              "anyOf": [
-                {
-                  "maximum": 36,
-                  "minimum": 1,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Forecast Months"
-            }
-          },
-          "title": "AssessmentDraft",
-          "type": "object"
-        },
-        "BehaviorProfile": {
-          "additionalProperties": false,
-          "description": "Self-reported behavior signals used only by the behavior dimension.",
-          "properties": {
-            "borrow_to_repay": {
-              "default": false,
-              "title": "Borrow To Repay",
-              "type": "boolean"
-            },
-            "strict_overdue_count": {
-              "default": 0,
-              "maximum": 100,
-              "minimum": 0,
-              "title": "Strict Overdue Count",
-              "type": "integer"
-            },
-            "insufficient_months_last_3": {
-              "default": 0,
-              "maximum": 3,
-              "minimum": 0,
-              "title": "Insufficient Months Last 3",
-              "type": "integer"
-            },
-            "income_drop_30_cannot_cover": {
-              "default": false,
-              "title": "Income Drop 30 Cannot Cover",
-              "type": "boolean"
-            },
-            "financial_cognition_score": {
-              "anyOf": [
-                {
-                  "maximum": 5,
-                  "minimum": 1,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Financial Cognition Score"
-            }
-          },
-          "title": "BehaviorProfile",
-          "type": "object"
-        },
-        "DebtDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "id": {
-              "anyOf": [
-                {
-                  "maxLength": 32,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Id"
-            },
-            "label": {
-              "anyOf": [
-                {
-                  "maxLength": 30,
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "remaining_principal": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 1000000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Principal"
-            },
-            "monthly_payment": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "maximum": 100000,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Payment"
-            },
-            "remaining_periods": {
-              "anyOf": [
-                {
-                  "maximum": 120,
-                  "minimum": 0,
-                  "type": "integer"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Remaining Periods"
-            },
-            "nominal_apr": {
-              "anyOf": [
-                {
-                  "maximum": 1,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Nominal Apr"
-            },
-            "settled": {
-              "anyOf": [
-                {
-                  "type": "boolean"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Settled"
-            }
-          },
-          "title": "DebtDraft",
-          "type": "object"
-        },
-        "IncomeDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "monthly_disposable_allowance": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Disposable Allowance"
-            },
-            "monthly_part_time_income": {
-              "anyOf": [
-                {
-                  "maximum": 1000000,
-                  "minimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Part Time Income"
-            }
-          },
-          "title": "IncomeDraft",
-          "type": "object"
-        },
-        "RecurringSubscriptionDraft": {
-          "additionalProperties": false,
-          "properties": {
-            "label": {
-              "anyOf": [
-                {
-                  "minLength": 1,
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Label"
-            },
-            "monthly_cost": {
-              "anyOf": [
-                {
-                  "exclusiveMinimum": 0,
-                  "type": "number"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "default": null,
-              "title": "Monthly Cost"
-            }
-          },
-          "title": "RecurringSubscriptionDraft",
-          "type": "object"
-        }
-      },
+    "Income": {
       "additionalProperties": false,
       "properties": {
-        "conversation_id": {
-          "maxLength": 64,
-          "minLength": 1,
-          "pattern": "^[A-Za-z0-9_-]+$",
-          "title": "Conversation Id",
-          "type": "string"
+        "monthly_disposable_allowance": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Monthly Disposable Allowance",
+          "type": "number"
         },
-        "draft": {
-          "$ref": "#/$defs/AssessmentDraft"
-        },
-        "missing_fields": {
-          "items": {
-            "type": "string"
-          },
-          "title": "Missing Fields",
-          "type": "array"
-        },
-        "pending_question": {
+        "monthly_part_time_income": {
+          "maximum": 1000000,
+          "minimum": 0,
+          "title": "Monthly Part Time Income",
+          "type": "number"
+        }
+      },
+      "required": [
+        "monthly_disposable_allowance",
+        "monthly_part_time_income"
+      ],
+      "title": "Income",
+      "type": "object"
+    },
+    "IncomeDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "monthly_disposable_allowance": {
           "anyOf": [
             {
-              "maxLength": 500,
-              "type": "string"
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "number"
             },
             {
               "type": "null"
             }
           ],
           "default": null,
-          "title": "Pending Question"
+          "title": "Monthly Disposable Allowance"
         },
-        "clarification_turns": {
-          "default": 1,
-          "maximum": 3,
-          "minimum": 1,
-          "title": "Clarification Turns",
-          "type": "integer"
-        },
-        "confirmed": {
-          "default": false,
-          "title": "Confirmed",
-          "type": "boolean"
-        },
-        "created_at": {
-          "format": "date-time",
-          "title": "Created At",
-          "type": "string"
-        },
-        "expires_at": {
-          "format": "date-time",
-          "title": "Expires At",
-          "type": "string"
+        "monthly_part_time_income": {
+          "anyOf": [
+            {
+              "maximum": 1000000,
+              "minimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Part Time Income"
         }
       },
-      "required": [
-        "conversation_id",
-        "draft",
-        "created_at",
-        "expires_at"
-      ],
-      "title": "DraftState",
+      "title": "IncomeDraft",
       "type": "object"
     },
     "IntakeResponse": {
@@ -1513,6 +669,7 @@
           "enum": [
             "needs_more_info",
             "ready_for_confirmation",
+            "clarification_limit",
             "invalid"
           ],
           "title": "Status",
@@ -1529,6 +686,27 @@
           },
           "title": "Missing Fields",
           "type": "array"
+        },
+        "clarification_turns": {
+          "default": 0,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Clarification Turns",
+          "type": "integer"
+        },
+        "max_clarification_turns": {
+          "default": 8,
+          "maximum": 50,
+          "minimum": 1,
+          "title": "Max Clarification Turns",
+          "type": "integer"
+        },
+        "remaining_clarification_turns": {
+          "default": 8,
+          "maximum": 50,
+          "minimum": 0,
+          "title": "Remaining Clarification Turns",
+          "type": "integer"
         },
         "preview": {
           "anyOf": [
@@ -1557,6 +735,94 @@
         "reply"
       ],
       "title": "IntakeResponse",
+      "type": "object"
+    },
+    "NaturalLanguageIntakeRequest": {
+      "additionalProperties": false,
+      "description": "One turn of natural-language intake.",
+      "properties": {
+        "conversation_id": {
+          "anyOf": [
+            {
+              "maxLength": 64,
+              "minLength": 1,
+              "pattern": "^[A-Za-z0-9_-]+$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Conversation Id"
+        },
+        "message": {
+          "maxLength": 4000,
+          "minLength": 1,
+          "title": "Message",
+          "type": "string"
+        }
+      },
+      "required": [
+        "message"
+      ],
+      "title": "NaturalLanguageIntakeRequest",
+      "type": "object"
+    },
+    "RecurringSubscription": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "description": "订阅名称",
+          "minLength": 1,
+          "title": "Label",
+          "type": "string"
+        },
+        "monthly_cost": {
+          "description": "每月扣费金额，单位元",
+          "exclusiveMinimum": 0,
+          "title": "Monthly Cost",
+          "type": "number"
+        }
+      },
+      "required": [
+        "label",
+        "monthly_cost"
+      ],
+      "title": "RecurringSubscription",
+      "type": "object"
+    },
+    "RecurringSubscriptionDraft": {
+      "additionalProperties": false,
+      "properties": {
+        "label": {
+          "anyOf": [
+            {
+              "minLength": 1,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Label"
+        },
+        "monthly_cost": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Monthly Cost"
+        }
+      },
+      "title": "RecurringSubscriptionDraft",
       "type": "object"
     }
   }

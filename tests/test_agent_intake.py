@@ -10,7 +10,7 @@ from riskguard.agent.runner import AgentRunner
 from riskguard.agent.schemas import NaturalLanguageIntakeRequest
 from riskguard.api.main import create_app
 from riskguard.models import AssessmentRequest, Debt, FIXED_BOUNDARY_NOTICE, Income
-from riskguard.services import AssessmentService, DraftStore, SessionStore
+from riskguard.services import AssessmentService, ConversationStore, DraftStore, SessionStore
 from riskguard.tools import ToolExecutor
 
 
@@ -119,6 +119,9 @@ def explanation_response() -> dict[str, Any]:
 
 def build_service(
     responses: list[Any],
+    *,
+    max_clarification_turns: int | None = None,
+    conversation_store: ConversationStore | None = None,
 ) -> tuple[IntakeService, FakeChatModel, SessionStore, DraftStore]:
     store = SessionStore()
     drafts = DraftStore()
@@ -134,6 +137,8 @@ def build_service(
         session_store=store,
         agent_runner=runner,
         llm_client=model,
+        max_clarification_turns=max_clarification_turns,
+        conversation_store=conversation_store,
     )
     return intake, model, store, drafts
 
@@ -229,6 +234,8 @@ def test_missing_fields_are_asked_and_merged_across_turns() -> None:
     assert first.status == "needs_more_info"
     assert "income.monthly_part_time_income" in first.missing_fields
     assert "debts[0].remaining_principal" in first.missing_fields
+    assert first.reply.count("？") == 1
+    assert "兼职收入" in first.reply
     assert len(sessions) == 0
     assert len(drafts) == 1
 
@@ -543,3 +550,483 @@ def test_settled_debts_and_subscription_do_not_block_assessment() -> None:
     assert response.assessment.metrics.debt_count == 0
     assert len(sessions) == 1
     assert len(drafts) == 0
+
+def test_first_input_does_not_count_as_a_clarification_turn() -> None:
+    missing = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [{"label": "花呗", "monthly_payment": 300}],
+                "no_debts": False,
+            },
+        }
+    )
+    service, model, _, _ = build_service(
+        [missing, missing, missing],
+        max_clarification_turns=2,
+    )
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="第一次描述"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="第一次补充",
+        )
+    )
+    third = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="第二次补充",
+        )
+    )
+    fourth = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="第三次补充",
+        )
+    )
+
+    assert first.status == "needs_more_info"
+    assert first.clarification_turns == 0
+    assert first.remaining_clarification_turns >= 1
+    assert second.clarification_turns == 1
+    assert third.clarification_turns == 2
+    assert fourth.status == "clarification_limit"
+    assert "MAX_CLARIFICATION_TURNS_REACHED" in fourth.warnings
+    assert len(model.calls) == 3
+def test_invalid_supplement_does_not_consume_a_clarification_turn() -> None:
+    missing = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [{"label": "花呗", "monthly_payment": 300}],
+                "no_debts": False,
+            },
+        }
+    )
+    invalid = extraction_response({"status": "invalid"})
+    service, model, _, _ = build_service([missing, invalid, missing])
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="第一次描述"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="这段暂时无法解析",
+        )
+    )
+    third = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="继续补充月供三百元",
+        )
+    )
+
+    assert first.clarification_turns == 0
+    assert second.status == "invalid"
+    assert second.clarification_turns == 0
+    assert third.status == "needs_more_info"
+    assert third.clarification_turns == 1
+    assert len(model.calls) == 3
+
+
+def test_eight_supplements_are_allowed_then_limit_does_not_call_model() -> None:
+    missing = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [{"label": "花呗", "monthly_payment": 300}],
+                "no_debts": False,
+            },
+        }
+    )
+    service, model, _, _ = build_service(
+        [missing] * 9,
+        max_clarification_turns=8,
+    )
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="第一次描述"))
+    assert first.clarification_turns == 0
+    conversation_id = first.conversation_id
+
+    last = first
+    for rounds in range(1, 9):
+        last = service.submit(
+            NaturalLanguageIntakeRequest(
+                conversation_id=conversation_id,
+                message=f"第{rounds}次补充",
+            )
+        )
+        assert last.status == "needs_more_info"
+        assert last.clarification_turns == rounds
+        assert last.remaining_clarification_turns == 8 - rounds
+
+    limited = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=conversation_id,
+            message="第九次补充",
+        )
+    )
+
+    assert limited.status == "clarification_limit"
+    assert limited.clarification_turns == 8
+    assert limited.remaining_clarification_turns == 0
+    assert "结构化表单" in limited.reply
+    assert "重新开始" in limited.reply
+    assert "MAX_CLARIFICATION_TURNS_REACHED" in limited.warnings
+    assert len(model.calls) == 9
+
+
+def test_known_fields_are_not_asked_again_and_new_named_debt_is_appended() -> None:
+    first_response = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "remaining_principal": 1000,
+                        "monthly_payment": 300,
+                    }
+                ],
+                "no_debts": False,
+            },
+        }
+    )
+    second_response = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "debts": [
+                    {
+                        "label": "白条",
+                        "remaining_principal": 800,
+                        "monthly_payment": 200,
+                        "remaining_periods": 4,
+                        "nominal_apr": 0.12,
+                    }
+                ]
+            },
+        }
+    )
+    service, model, _, _ = build_service([first_response, second_response])
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="我有花呗和收入信息"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="那再补一个白条分期",
+        )
+    )
+
+    assert "生活费" not in first.reply
+    assert "兼职收入" not in first.reply
+    assert second.preview is not None
+    labels = [item["label"] for item in second.preview["debts"]]
+    assert labels == ["花呗", "白条"]
+    assert second.preview["debts"][0]["monthly_payment"] == 300
+    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
+    assert second_prompt["previous_question"] == first.reply
+    assert second_prompt["existing_draft"]["income"]["monthly_disposable_allowance"] == 2000
+
+
+def test_unknown_nominal_apr_can_complete_and_is_not_treated_as_zero() -> None:
+    draft = json.loads(json.dumps(FULL_DRAFT, ensure_ascii=False))
+    draft["debts"][0].pop("nominal_apr")
+    service, _, sessions, _ = build_service(
+        [
+            extraction_response({"draft": draft}),
+            tool_call_response,
+            explanation_response(),
+        ]
+    )
+
+    response = service.submit(
+        NaturalLanguageIntakeRequest(message="利率不知道，其他信息都有。")
+    )
+
+    assert response.status == "ready_for_confirmation"
+    assert "nominal_apr" not in response.preview["debts"][0]
+
+    confirmed = service.confirm(response.conversation_id)
+    assert confirmed.assessment is not None
+    assert any("名义利率未知" in warning for warning in confirmed.assessment.warnings)
+    assert len(sessions) == 1
+def test_apr_not_mentioned_is_asked_once_then_unknown_is_accepted() -> None:
+    missing_apr = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "remaining_principal": 1000,
+                        "monthly_payment": 300,
+                        "remaining_periods": 5,
+                        "nominal_apr_status": "not_mentioned",
+                    }
+                ],
+                "no_debts": False,
+            },
+        }
+    )
+    unknown_apr = extraction_response(
+        {
+            "status": "complete",
+            "draft": {
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "nominal_apr": None,
+                        "nominal_apr_status": "unknown",
+                    }
+                ]
+            },
+        }
+    )
+    service, model, _, _ = build_service([missing_apr, unknown_apr])
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="我有花呗和收入信息"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="利率我不知道。",
+        )
+    )
+
+    assert first.status == "needs_more_info"
+    assert any(field.endswith(".nominal_apr") for field in first.missing_fields)
+    assert second.status == "ready_for_confirmation"
+    assert second.preview is not None
+    assert second.preview["debts"][0].get("nominal_apr") is None
+    assert "nominal_apr_status" not in second.preview["debts"][0]
+    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
+    assert second_prompt["existing_draft"]["debts"][0]["nominal_apr_status"] == "not_mentioned"
+def test_confirmation_is_idempotent_after_draft_is_deleted() -> None:
+    service, model, sessions, drafts = build_service(
+        [
+            extraction_response({"status": "complete", "draft": FULL_DRAFT}),
+            tool_call_response,
+            explanation_response(),
+            tool_call_response,
+            explanation_response(),
+        ],
+        conversation_store=ConversationStore(),
+    )
+    intake = service.submit(
+        NaturalLanguageIntakeRequest(message="我每个月生活费2200，兼职800，有一笔购物分期。")
+    )
+    assert intake.status == "ready_for_confirmation"
+
+    first = service.confirm(intake.conversation_id)
+    second = service.confirm(intake.conversation_id)
+
+    assert first.status == "completed"
+    assert second.status == "completed"
+    assert first.session_id == second.session_id
+    assert len(sessions) == 1
+    assert len(drafts) == 0
+    assert len(model.calls) == 5
+def test_two_debts_are_asked_with_their_labels() -> None:
+    first_payload = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [
+                    {"label": "花呗", "monthly_payment": 300},
+                    {"label": "白条", "monthly_payment": 200},
+                ],
+                "no_debts": False,
+            },
+        }
+    )
+    second_payload = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "remaining_principal": 1000,
+                        "remaining_periods": 5,
+                        "nominal_apr": 0.12,
+                    }
+                ]
+            },
+        }
+    )
+    service, _, _, _ = build_service([first_payload, second_payload])
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="我有花呗和白条两笔分期。"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="花呗本金1000，还剩5期，利率12%。",
+        )
+    )
+
+    assert "花呗" in first.reply
+    assert first.reply.count("？") == 1
+    assert "白条" in second.reply
+    assert second.reply.count("？") == 1
+    assert second.preview is not None
+    assert [item["label"] for item in second.preview["debts"]] == ["花呗", "白条"]
+
+
+def test_automatic_renewal_membership_is_not_asked_as_installment() -> None:
+    service, _, _, _ = build_service(
+        [
+            extraction_response(
+                {
+                    "status": "needs_more_info",
+                    "draft": {
+                        "income": {
+                            "monthly_disposable_allowance": 2000,
+                            "monthly_part_time_income": 500,
+                        },
+                        "debts": [
+                            {"label": "花呗", "monthly_payment": 300},
+                            {
+                                "label": "某视频平台自动续费会员",
+                                "monthly_payment": 15,
+                            },
+                        ],
+                        "recurring_subscriptions": [],
+                        "no_debts": False,
+                    },
+                }
+            )
+        ]
+    )
+    response = service.submit(NaturalLanguageIntakeRequest(message="我有花呗和一个自动续费会员。"))
+
+    assert "花呗" in response.reply
+    assert "会员" not in response.reply or "订阅" in response.reply
+    assert response.preview is not None
+    assert response.preview["recurring_subscriptions"] == [
+        {"label": "某视频平台自动续费会员", "monthly_cost": 15.0}
+    ]
+    assert all(
+        "会员" not in item.get("label", "")
+        for item in response.preview["debts"]
+    )
+    assert all(
+        "debts[1].remaining_principal" not in field
+        for field in response.missing_fields
+    )
+
+
+def test_total_repayment_is_not_silently_used_as_principal() -> None:
+    service, _, _, _ = build_service(
+        [
+            extraction_response(
+                {
+                    "status": "needs_more_info",
+                    "draft": {
+                        "income": {
+                            "monthly_disposable_allowance": 2000,
+                            "monthly_part_time_income": 500,
+                        },
+                        "debts": [
+                            {
+                                "label": "花呗",
+                                "remaining_principal": 800,
+                                "total_remaining_repayment": 900,
+                                "monthly_payment": 300,
+                                "nominal_apr_status": "unknown",
+                            }
+                        ],
+                        "no_debts": False,
+                    },
+                }
+            )
+        ]
+    )
+    response = service.submit(NaturalLanguageIntakeRequest(message="花呗总还款1000，每月300。"))
+
+    assert response.preview is not None
+    debt = response.preview["debts"][0]
+    assert debt["remaining_principal"] == 800
+    assert debt["total_remaining_repayment"] == 900
+    assert debt["remaining_periods"] == 3
+    assert "remaining_periods" in debt["derived_fields"]
+
+
+def test_non_divisible_total_payment_asks_for_final_payment() -> None:
+    service, _, _, _ = build_service(
+        [
+            extraction_response(
+                {
+                    "status": "needs_more_info",
+                    "draft": {
+                        "income": {
+                            "monthly_disposable_allowance": 2000,
+                            "monthly_part_time_income": 500,
+                        },
+                        "debts": [
+                            {
+                                "label": "花呗",
+                                "remaining_principal": 800,
+                                "total_remaining_repayment": 1000,
+                                "monthly_payment": 300,
+                                "nominal_apr_status": "unknown",
+                            }
+                        ],
+                        "no_debts": False,
+                    },
+                }
+            )
+        ]
+    )
+    response = service.submit(NaturalLanguageIntakeRequest(message="花呗总还款1000，每月300。"))
+
+    assert response.status == "needs_more_info"
+    assert "最后一期" in response.reply
+    assert any(field.endswith(".final_payment") for field in response.missing_fields)
+def test_ambiguous_membership_installment_asks_debt_type() -> None:
+    service, _, _, _ = build_service(
+        [
+            extraction_response(
+                {
+                    "status": "needs_more_info",
+                    "draft": {
+                        "income": {
+                            "monthly_disposable_allowance": 2000,
+                            "monthly_part_time_income": 500,
+                        },
+                        "debts": [{"label": "会员分期", "monthly_payment": 100}],
+                        "no_debts": False,
+                    },
+                }
+            )
+        ]
+    )
+    response = service.submit(NaturalLanguageIntakeRequest(message="我有一笔会员分期，每月100。"))
+
+    assert response.status == "needs_more_info"
+    assert "一次性分期" in response.reply
+    assert "每月自动续费" in response.reply
+    assert any(field.endswith(".kind") for field in response.missing_fields)

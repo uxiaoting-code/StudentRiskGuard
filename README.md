@@ -1,16 +1,20 @@
 # StudentRiskGuard
 
-大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层、M4 Agent 工具调用链、M4-A 自然语言录入和 M4-B 科普问答/情景模拟后端；M5 页面代码已实现，待本地运行验收。
+大学生负债压力自检与理性消费科普 Agent。当前仓库已完成 M0 契约、M1 工程骨架、M2 确定性统计计算内核、M3 会话/工具/API 层、M4 Agent 工具调用链、M4-A 自然语言录入、M4-B 科普问答/情景模拟和 M5/M5.5/M5.6 页面与对话上下文；手工页面与内容审核仍待完成。
 
 ## 当前状态
 
-- M0：最终契约已冻结。
+- M0：M2 数值公式保持冻结；M4/M5.6 仅增加可空利率和活动任务字段。
 - M1：Pydantic 模型与 JSON Schema 对齐。
 - M2：DTI、IRR、评分卡、现金流和存款缓冲已完成，五套 Demo 通过。
 - M3：内存会话、ToolExecutor、确定性评估 API 已完成。
-- M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。\n- M4-A：自然语言抽取、草稿追问、用户确认和现有评估链路接入已完成。
+- M4：AgentRunner 两轮工作流、DeepSeek 适配、解释 JSON 和安全降级已完成。
+- M4-A：自然语言抽取、草稿追问、用户确认和现有评估链路接入已完成。
 - M4-B：统一聊天入口、确定性意图路由、科普问答、情景模拟和最小安全校验已完成。
 - M5：智能对话、结构化表单、风险报告、科普卡片、情景模拟和工具轨迹页面已接入。
+- M5.7：新增一问一答向导、确认幂等保护和报告后对话追问。
+- M5.8：优化类大模型对话页面、中文报告标签、颜色主题和报告后快捷追问。
+- M6：安全过滤、隐私边界、模型失败降级和安全测试集已完成代码实现，待人工安全复核。
 
 ## 测试
 
@@ -18,7 +22,7 @@
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-当前测试数量：97。
+测试数量以本次提交的实际 `pytest` 结果为准，不再在 README 中维护容易过期的手写数字。
 
 ## 本地运行
 
@@ -96,7 +100,29 @@ POST /api/v1/agent/assess
 {"session_id": "demo-s03"}
 ```
 
-返回 `AgentResponse`，包含 `assessment`、`explanation` 和 `tool_activity`。真实 DeepSeek 调用需要配置 `DEEPSEEK_API_KEY`；未配置时自动返回模板降级结果。\n\n### 自然语言录入\n\n```http\nPOST /api/v1/agent/intake\n```\n\n请求示例：\n\n```json\n{"message": "我每个月生活费 2000，兼职 600，花呗每月还 300。"}\n```\n\n信息不足时返回 `needs_more_info` 和 `missing_fields`；信息完整时返回 `ready_for_confirmation`。用户确认后调用：\n\n```http\nPOST /api/v1/agent/intake/{conversation_id}/confirm\n```\n\n确认后创建匿名内存会话，并复用 `run_risk_assessment` 工具与现有解释链。
+返回 `AgentResponse`，包含 `assessment`、`explanation` 和 `tool_activity`。真实 DeepSeek 调用需要配置 `DEEPSEEK_API_KEY`；未配置时自动返回模板降级结果。当前自动化测试未重新验证真实 Key 联调。
+
+### 自然语言录入
+
+```http
+POST /api/v1/agent/intake
+```
+
+请求示例：
+
+```json
+{"message": "我每个月生活费 2000，兼职 600，花呗每月还 300。"}
+```
+
+信息不足时返回 `needs_more_info` 和 `missing_fields`；信息完整时返回 `ready_for_confirmation`。用户确认后调用：
+
+```http
+POST /api/v1/agent/intake/{conversation_id}/confirm
+```
+
+确认后创建匿名内存会话，并复用 `run_risk_assessment` 工具与现有解释链。
+
+`debts[].nominal_apr` 可为 `null`。未知利率不会写成 0%，结果会显示“名义利率未知、真实成本解释受限”；IRR 仍只依据本金、月供和期数计算。
 
 ### 统一对话入口
 
@@ -205,3 +231,15 @@ $env:AUTH_TOKEN_TTL_MINUTES="1440"
 ```
 
 `data/auth.db` 已被 `.gitignore` 的 `*.db` 规则排除，不要提交。
+## M5.6 有界追问与上下文记忆
+
+- 首次用户输入不占追问轮数；
+- 默认允许首次输入后 8 轮补充，可通过 `MAX_CLARIFICATION_TURNS=8` 调整；
+- 短期上下文仅保存在进程内 `ChatMemoryStore`，默认最多 8 条消息、TTL 1800 秒；
+- 可通过 `CHAT_MEMORY_MAX_MESSAGES=8` 和 `CHAT_MEMORY_TTL_SECONDS=1800` 配置；
+- 后台清理器默认每 60 秒运行一次，可通过 `RETENTION_SWEEP_SECONDS=60` 配置；
+- 不发送完整聊天历史给任何 LLM，报告解释模型仍只接收 `AssessmentResult`；
+- 删除会话接口为 `DELETE /api/v1/agent/conversations/{conversation_id}`；
+- 删除 conversation 会级联清理关联 session、scenario、draft、conversation 和 memory；
+- 达到上限后保留结构化草稿，页面提供结构化表单和重新开始入口；
+- 已结清负债和订阅规则保持不变。

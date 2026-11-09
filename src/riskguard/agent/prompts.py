@@ -7,8 +7,8 @@ from typing import Any
 
 from riskguard.agent.schemas import (
     AssessmentDraft,
-    EducationAnswer,
     EducationCard,
+    EducationSelection,
     ExtractionResult,
     ScenarioExtractionResult,
 )
@@ -45,9 +45,20 @@ EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽�
 15. existing_draft 是已经确认或已经抽取的草稿；返回时必须保留其中非空字段，除非用户明确纠正。
 16. 用户补充信息时，只更新用户新提到的字段，不要删除 existing_draft 中已有值。
 17. question 必须使用普通大学生能理解的大白话，禁止写字段名、JSON key、数组下标，例如 debts[0].remaining_periods、nominal_apr、monthly_payment。
-18. 不要输出用户原文，不要复述整段自然语言。"""
+18. previous_question 是上一轮尚未回答的问题，只用于理解用户这次补充了什么，不要把它当作用户新提供的数据。
+19. 可以使用当前轮消息、existing_draft 和 previous_question，但不要依赖完整聊天历史，也不要要求系统提供完整历史。
+20. 用户纠正已有字段时以本轮明确表达为准；用户没有提到的已知字段必须保留。
+21. 不要编造用户没有提供的金额、期数、利率或订阅费用；不要重复询问 existing_draft 中已经存在的字段。
+22. 已结清负债和订阅规则不得回退：已结清记录不进入正式债务，订阅只进入 recurring_subscriptions。
+23. 用户明确说利率“不知道、不清楚、没告诉我”时，nominal_apr 必须为 null，nominal_apr_status 必须为 unknown；不能写成 0，其他字段完整时仍可返回 complete。
+23.1. 用户说“剩余本金”时填写 remaining_principal；用户说“总共还要还/总还款”时填写 total_remaining_repayment，不能把总还款额直接当成 remaining_principal。
+23.2. 不要自行计算 remaining_periods。可以填写 total_remaining_repayment、monthly_payment 和 final_payment，后端会用确定性代码检查或推导。
+23.3. 自动续费、会员、订阅、连续包月、月费属于 recurring_subscriptions，不属于 debts；如果标签是“会员分期”等歧义表达，不要擅自判断，交给后端追问。
+24. 用户尚未提到利率时，nominal_apr_status 使用 not_mentioned；用户提供了具体利率时使用 provided。
+25. 不要输出用户原文，不要复述整段自然语言。"""
 
 EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，面向中国在校大学生提供负债压力自查和理性消费科普。
+你只接收结构化 AssessmentResult，不接收原始聊天文本、完整聊天历史或完整财务档案。
 
 严格遵守：
 1. 你只解释工具返回的 AssessmentResult，不进行计算。
@@ -61,7 +72,9 @@ EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，
 9. 不重复任何阿拉伯数字；具体数值由前端从 AssessmentResult 渲染。
 10. boundary_notice 必须逐字等于：
 {FIXED_BOUNDARY_NOTICE}
-11. 输出字段必须完整符合提供的 Explanation Schema。"""
+11. 输出字段必须完整符合提供的 Explanation Schema。
+12. risk_sources 只用于选择证据维度；后端会丢弃自由文本，并根据合法 dimension_id 重新组装最终解释。
+13. 不要输出任何未经工具结果授权的金额、利率、期数、概率、审批、额度或放款事实。"""
 
 
 def build_tool_messages(session_id: str) -> list[dict[str, Any]]:
@@ -84,6 +97,7 @@ def build_extraction_messages(
     *,
     user_message: str,
     existing_draft: AssessmentDraft | None = None,
+    previous_question: str | None = None,
 ) -> list[dict[str, Any]]:
     """Build the one extraction request. Raw text goes only to this model call."""
 
@@ -99,6 +113,7 @@ def build_extraction_messages(
                         if existing_draft is not None
                         else None
                     ),
+                    "previous_question": previous_question,
                     "extraction_result_schema": ExtractionResult.model_json_schema(),
                     "assessment_request_schema": AssessmentRequest.model_json_schema(),
                     "user_message": user_message,
@@ -139,19 +154,19 @@ def build_explanation_messages(
 
 
 EDUCATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的金融教育回答 Agent。
-你只能根据提供的 EducationCard 回答，不得自行补充金融事实或数字。
+你不生成自由文本，只能从提供的 EducationCard 中选择来源片段编号。
 
 严格遵守：
-1. 只使用卡片中的 key_points 和 allowed_actions。
-2. 不推荐具体平台、品牌、分期产品或投资产品。
-3. 不承诺收益，不承诺解决债务，不提供以贷养贷方案。
-4. 不判断贷款审批、授信额度、通过率或放款结果。
-5. 用大学生能理解的语言回答。
-6. 只输出严格 JSON，不要 Markdown 代码围栏。
-7. 不输出阿拉伯数字；具体数值由工具或页面展示。
-8. boundary_notice 必须逐字等于：
-{FIXED_BOUNDARY_NOTICE}
-9. 输出字段必须符合 EducationAnswer Schema。"""
+1. key_point_indices 使用从 1 开始的编号，只能选 key_points 中已有的项目。
+2. action_indices 使用从 1 开始的编号，只能选 allowed_actions 中已有的项目；最多选一项，也可以不选。
+3. 不得生成、改写或补全任何金融事实、建议或数字。
+4. 不推荐具体平台、品牌、分期产品或投资产品。
+5. 不承诺收益，不承诺解决债务，不提供以贷养贷方案。
+6. 不判断贷款审批、授信额度、通过率或放款结果。
+7. 只输出严格 JSON，不要 Markdown 代码围栏。
+8. topic_id 必须等于当前卡片 topic_id。
+9. 输出字段必须符合 EducationSelection Schema。
+10. boundary_notice 由后端逐字添加，模型不得生成。"""
 
 
 def build_education_messages(
@@ -167,7 +182,7 @@ def build_education_messages(
                 {
                     "task": "只基于这张教育卡片回答用户问题。",
                     "education_card": card.model_dump(mode="json"),
-                    "answer_schema": EducationAnswer.model_json_schema(),
+                    "selection_schema": EducationSelection.model_json_schema(),
                     "user_question": question,
                 },
                 ensure_ascii=False,
@@ -188,10 +203,16 @@ SCENARIO_EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的情景模拟�
 5. 信息不足返回 needs_more_info，并在 missing_fields 和 question 中说明。
 6. 数值非法返回 invalid。
 7. 该类问题只用于数学情景模拟，不代表真实借款建议。
-8. 只抽取用户明确描述的新增分期，不要修改已有会话数据。"""
+8. 只抽取用户明确描述的新增分期，不要修改已有会话数据。
+9. 用户明确说利率“不知道、不清楚、没告诉我”时，nominal_apr 必须为 null，不能写成 0；只要本金、月供和期数完整，状态仍可为 complete。"""
 
 
-def build_scenario_extraction_messages(*, user_message: str) -> list[dict[str, Any]]:
+def build_scenario_extraction_messages(
+    *,
+    user_message: str,
+    existing_scenario: dict[str, Any] | None = None,
+    previous_question: str | None = None,
+) -> list[dict[str, Any]]:
     return [
         {"role": "system", "content": SCENARIO_EXTRACTION_SYSTEM_PROMPT},
         {
@@ -200,6 +221,8 @@ def build_scenario_extraction_messages(*, user_message: str) -> list[dict[str, A
                 {
                     "task": "提取新增分期情景字段。",
                     "scenario_result_schema": ScenarioExtractionResult.model_json_schema(),
+                    "existing_scenario": existing_scenario,
+                    "previous_question": previous_question,
                     "user_message": user_message,
                 },
                 ensure_ascii=False,

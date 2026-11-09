@@ -295,3 +295,52 @@ def test_forbidden_lending_recommendation_uses_degraded_fallback() -> None:
     assert response.degraded is True
     assert response.explanation is not None
     assert response.explanation.boundary_notice == FIXED_BOUNDARY_NOTICE
+def test_model_timeout_uses_degraded_fallback() -> None:
+    def timeout_response(kwargs: dict[str, Any]) -> dict[str, Any]:
+        raise httpx.TimeoutException("timeout")
+
+    runner, model, _ = runner_for("agent-timeout", [timeout_response])
+    response = runner.assess("agent-timeout")
+
+    assert response.status == "degraded"
+    assert response.degraded is True
+    assert response.assessment is not None
+    assert response.explanation is not None
+    assert response.explanation.boundary_notice == FIXED_BOUNDARY_NOTICE
+    assert len(model.calls) == 1
+
+
+def test_unknown_dimension_uses_degraded_fallback() -> None:
+    unsafe = explanation_response()
+    payload = json.loads(unsafe["choices"][0]["message"]["content"])
+    payload["risk_sources"][0]["dimension_id"] = "unknown_dimension"
+    unsafe["choices"][0]["message"]["content"] = json.dumps(payload, ensure_ascii=False)
+    runner, _, _ = runner_for(
+        "agent-unknown-dimension",
+        [tool_call_response("agent-unknown-dimension"), unsafe],
+    )
+
+    response = runner.assess("agent-unknown-dimension")
+
+    assert response.status == "degraded"
+    assert response.assessment is not None
+    assert response.explanation is not None
+    assert response.explanation.boundary_notice == FIXED_BOUNDARY_NOTICE
+
+
+def test_unauthorized_number_uses_degraded_fallback() -> None:
+    unsafe = explanation_response()
+    payload = json.loads(unsafe["choices"][0]["message"]["content"])
+    payload["summary"] = "当前风险分数是 50 分。"
+    unsafe["choices"][0]["message"]["content"] = json.dumps(payload, ensure_ascii=False)
+    runner, _, _ = runner_for(
+        "agent-number",
+        [tool_call_response("agent-number"), unsafe],
+    )
+
+    response = runner.assess("agent-number")
+
+    assert response.status == "degraded"
+    assert response.assessment is not None
+    assert response.explanation is not None
+    assert response.explanation.boundary_notice == FIXED_BOUNDARY_NOTICE

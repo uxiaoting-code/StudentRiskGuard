@@ -16,7 +16,7 @@ from riskguard.agent.errors import (
 )
 from riskguard.agent.fallback import build_fallback_explanation
 from riskguard.agent.prompts import build_explanation_messages, build_tool_messages
-from riskguard.agent.safety import is_safe_explanation
+from riskguard.agent.safety import build_grounded_explanation, is_safe_explanation
 from riskguard.models import (
     AgentError,
     AgentResponse,
@@ -67,7 +67,7 @@ class AgentRunner:
                 assistant_message=assistant_message,
                 tool_result=result.model_dump(mode="json"),
             )
-            self._validate_explanation(explanation, result)
+            explanation = self._ground_explanation(explanation, result)
             return AgentResponse(
                 request_id=result.request_id,
                 status="completed",
@@ -179,6 +179,18 @@ class AgentRunner:
             return Explanation.model_validate_json(cleaned)
         except Exception as exc:
             raise ExplanationInvalid("explanation does not match schema") from exc
+
+    def _ground_explanation(
+        self,
+        explanation: Explanation,
+        result: AssessmentResult,
+    ) -> Explanation:
+        # First reject unsafe or ungrounded model output. Then discard all
+        # free-form wording and rebuild from the selected evidence dimensions.
+        self._validate_explanation(explanation, result)
+        grounded = build_grounded_explanation(explanation, result)
+        self._validate_explanation(grounded, result)
+        return grounded
 
     def _validate_explanation(self, explanation: Explanation, result: AssessmentResult) -> None:
         allowed_dimensions = {item.id for item in result.risk.dimensions}

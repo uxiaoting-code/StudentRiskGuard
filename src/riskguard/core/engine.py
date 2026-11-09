@@ -53,6 +53,15 @@ def run_assessment(
             + "、".join(unavailable_debts)
             + "。"
         )
+    unknown_apr_debts = [
+        debt.id for debt in request.debts if debt.nominal_apr is None
+    ]
+    if unknown_apr_debts:
+        warnings.append(
+            "以下债务的名义利率未知，真实成本解释受限："
+            + "、".join(unknown_apr_debts)
+            + "。IRR 仍仅依据本金、月供和期数计算，未包含未录入费用。"
+        )
     if metrics.monthly_surplus < 0:
         warnings.append("当前月度固定支出已经高于月度可支配资金。")
     warnings.extend(savings_buffer_warnings(cashflow, request.savings_balance))

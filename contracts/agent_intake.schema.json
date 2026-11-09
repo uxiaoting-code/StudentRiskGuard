@@ -364,23 +364,6 @@
           "default": null,
           "title": "Nominal Apr"
         },
-        "nominal_apr_status": {
-          "anyOf": [
-            {
-              "enum": [
-                "not_mentioned",
-                "unknown",
-                "provided"
-              ],
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "title": "Nominal Apr Status"
-        },
         "settled": {
           "anyOf": [
             {

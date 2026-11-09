@@ -167,14 +167,11 @@ class IntakeService:
                 warnings=["EXTRACTION_EMPTY"],
             )
 
-        merged_draft = self._mark_unknown_apr(
-            self._normalize_draft(
-                self._merge_drafts(
-                    existing.draft if existing is not None else AssessmentDraft(),
-                    extraction.draft,
-                )
-            ),
-            payload.message,
+        merged_draft = self._normalize_draft(
+            self._merge_drafts(
+                existing.draft if existing is not None else AssessmentDraft(),
+                extraction.draft,
+            )
         )
         missing_fields = self._collect_missing_fields(merged_draft)
 
@@ -275,7 +272,7 @@ class IntakeService:
         response = self._agent_runner.assess(request.session_id)
         self._remember_assessment(conversation_id, request.session_id, response)
         self._draft_store.delete(conversation_id)
-        return response.model_copy(update={"session_id": request.session_id})
+        return response
 
     def _remember_assessment(
         self,
@@ -445,19 +442,7 @@ class IntakeService:
                     ) or []
                     continue
                 settled = debt.settled is True or debt.remaining_periods == 0
-                apr_status = debt.nominal_apr_status
-                if debt.nominal_apr is not None:
-                    apr_status = "provided"
-                elif apr_status is None:
-                    apr_status = "not_mentioned"
-                debts.append(
-                    debt.model_copy(
-                        update={
-                            "settled": settled,
-                            "nominal_apr_status": apr_status,
-                        }
-                    )
-                )
+                debts.append(debt.model_copy(update={"settled": settled}))
         return draft.model_copy(
             update={
                 "debts": debts,
@@ -593,11 +578,6 @@ class IntakeService:
                     ):
                         if getattr(debt, field) is None:
                             missing.append(f"debts[{index}].{field}")
-                    if (
-                        debt.nominal_apr is None
-                        and debt.nominal_apr_status != "unknown"
-                    ):
-                        missing.append(f"debts[{index}].nominal_apr")
 
         for index, subscription in enumerate(draft.recurring_subscriptions or []):
             if subscription.label is None:
@@ -639,8 +619,6 @@ class IntakeService:
                 questions.append("这笔分期每个月大概还多少？")
             elif tail == "remaining_periods":
                 questions.append("这笔分期还要还几个月？")
-            elif tail == "nominal_apr":
-                questions.append("这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。")
             elif tail == "label":
                 questions.append("这个订阅或会员叫什么名字？")
             elif tail == "monthly_cost":
@@ -656,35 +634,10 @@ class IntakeService:
         return "还差一点信息：" + " ".join(unique_questions[:6])
 
     @staticmethod
-    def _mark_unknown_apr(
-        draft: AssessmentDraft,
-        user_message: str,
-    ) -> AssessmentDraft:
-        normalized = user_message.lower()
-        unknown_terms = ("不知道", "不清楚", "没注意", "没告诉我", "忘了")
-        mentions_apr = "利率" in normalized or "年化" in normalized
-        if not (mentions_apr and any(term in normalized for term in unknown_terms)):
-            return draft
-        debts = [
-            debt.model_copy(
-                update={
-                    "nominal_apr": None,
-                    "nominal_apr_status": "unknown",
-                }
-            )
-            if debt.nominal_apr is None
-            else debt
-            for debt in (draft.debts or [])
-        ]
-        return draft.model_copy(update={"debts": debts})
-
-    @staticmethod
     def _preview(draft: AssessmentDraft) -> dict[str, Any]:
         preview = draft.model_dump(mode="json", exclude_none=True)
-        # Internal markers are not part of the user-facing preview.
+        # This is an internal marker, not a field for the user-facing preview.
         preview.pop("no_debts", None)
-        for debt in preview.get("debts", []):
-            debt.pop("nominal_apr_status", None)
         return preview
 
     @staticmethod

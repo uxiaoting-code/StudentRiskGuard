@@ -461,8 +461,6 @@ def _confirm_chat_intake(client: ApiClient) -> None:
         return
     try:
         response = client.confirm_intake(conversation_id)
-        if response.get("session_id"):
-            st.session_state.session_id = response["session_id"]
         st.session_state.last_agent_response = response
         st.session_state.agent_response_source = "chat"
         st.session_state.last_chat_response = None

@@ -10,7 +10,7 @@ from riskguard.agent.runner import AgentRunner
 from riskguard.agent.schemas import NaturalLanguageIntakeRequest
 from riskguard.api.main import create_app
 from riskguard.models import AssessmentRequest, Debt, FIXED_BOUNDARY_NOTICE, Income
-from riskguard.services import AssessmentService, DraftStore, SessionStore
+from riskguard.services import AssessmentService, ConversationStore, DraftStore, SessionStore
 from riskguard.tools import ToolExecutor
 
 
@@ -121,6 +121,7 @@ def build_service(
     responses: list[Any],
     *,
     max_clarification_turns: int | None = None,
+    conversation_store: ConversationStore | None = None,
 ) -> tuple[IntakeService, FakeChatModel, SessionStore, DraftStore]:
     store = SessionStore()
     drafts = DraftStore()
@@ -137,6 +138,7 @@ def build_service(
         agent_runner=runner,
         llm_client=model,
         max_clarification_turns=max_clarification_turns,
+        conversation_store=conversation_store,
     )
     return intake, model, store, drafts
 
@@ -232,6 +234,8 @@ def test_missing_fields_are_asked_and_merged_across_turns() -> None:
     assert first.status == "needs_more_info"
     assert "income.monthly_part_time_income" in first.missing_fields
     assert "debts[0].remaining_principal" in first.missing_fields
+    assert first.reply.count("？") == 1
+    assert "兼职收入" in first.reply
     assert len(sessions) == 0
     assert len(drafts) == 1
 
@@ -817,3 +821,28 @@ def test_apr_not_mentioned_is_asked_once_then_unknown_is_accepted() -> None:
     assert "nominal_apr_status" not in second.preview["debts"][0]
     second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
     assert second_prompt["existing_draft"]["debts"][0]["nominal_apr_status"] == "not_mentioned"
+def test_confirmation_is_idempotent_after_draft_is_deleted() -> None:
+    service, model, sessions, drafts = build_service(
+        [
+            extraction_response({"status": "complete", "draft": FULL_DRAFT}),
+            tool_call_response,
+            explanation_response(),
+            tool_call_response,
+            explanation_response(),
+        ],
+        conversation_store=ConversationStore(),
+    )
+    intake = service.submit(
+        NaturalLanguageIntakeRequest(message="我每个月生活费2200，兼职800，有一笔购物分期。")
+    )
+    assert intake.status == "ready_for_confirmation"
+
+    first = service.confirm(intake.conversation_id)
+    second = service.confirm(intake.conversation_id)
+
+    assert first.status == "completed"
+    assert second.status == "completed"
+    assert first.session_id == second.session_id
+    assert len(sessions) == 1
+    assert len(drafts) == 0
+    assert len(model.calls) == 5

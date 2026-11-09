@@ -17,6 +17,8 @@ DEFAULTS: dict[str, Any] = {
     "last_chat_response": None,
     "last_agent_response": None,
     "agent_response_source": None,
+    "assessment_ready": False,
+    "confirming": False,
     "last_intake_response": None,
     "last_user_message": None,
     "last_error": None,

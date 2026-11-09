@@ -36,6 +36,8 @@ from riskguard.services import (
     ConversationExpired,
     ConversationNotFound,
     ConversationStore,
+    DraftExpired,
+    DraftNotFound,
     DraftStore,
     SessionStore,
 )
@@ -255,7 +257,18 @@ class IntakeService:
     ) -> AgentResponse:
         """Confirm the draft, create a session and run the existing M4 chain."""
 
-        state = self._draft_store.get(conversation_id)
+        try:
+            state = self._draft_store.get(conversation_id)
+        except (DraftNotFound, DraftExpired) as exc:
+            # Confirmation is intentionally idempotent. A browser double click
+            # or a Streamlit rerun must not surface a misleading DraftNotFound
+            # after the first confirmation already created a session.
+            if self._conversation_store is not None:
+                conversation = self._conversation_store.get_optional(conversation_id)
+                if conversation is not None and conversation.session_id is not None:
+                    response = self._agent_runner.assess(conversation.session_id)
+                    return response.model_copy(update={"session_id": conversation.session_id})
+            raise IntakeNotReady("draft has already been confirmed or expired") from exc
         if assessment_request is not None:
             # A user-edited preview is allowed to fill gaps in the draft, but it
             # still has to pass the frozen AssessmentRequest validation below.
@@ -624,37 +637,31 @@ class IntakeService:
 
     @staticmethod
     def _build_question(missing_fields: list[str]) -> str:
-        questions: list[str] = []
-        for field in missing_fields:
-            tail = field.rsplit(".", 1)[-1]
-            if field.startswith("income.monthly_disposable_allowance"):
-                questions.append("你每个月大概有多少生活费？")
-            elif field.startswith("income.monthly_part_time_income"):
-                questions.append("你每个月大概有多少兼职收入？没有的话可以直接说没有。")
-            elif field == "debts":
-                questions.append("你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。")
-            elif tail == "remaining_principal":
-                questions.append("这笔分期现在大概还欠多少钱？")
-            elif tail == "monthly_payment":
-                questions.append("这笔分期每个月大概还多少？")
-            elif tail == "remaining_periods":
-                questions.append("这笔分期还要还几个月？")
-            elif tail == "nominal_apr":
-                questions.append("这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。")
-            elif tail == "label":
-                questions.append("这个订阅或会员叫什么名字？")
-            elif tail == "monthly_cost":
-                questions.append("这个会员每个月大概扣多少钱？")
-            elif field == "income.positive_total":
-                questions.append("请确认一下你每个月的生活费和兼职收入大概是多少。")
-        if not questions:
-            questions.append("请再补充一下这笔账单的还款情况。")
-        unique_questions: list[str] = []
-        for question in questions:
-            if question not in unique_questions:
-                unique_questions.append(question)
-        return "还差一点信息：" + " ".join(unique_questions[:6])
-
+        field = missing_fields[0]
+        tail = field.rsplit(".", 1)[-1]
+        if field.startswith("income.monthly_disposable_allowance"):
+            question = "你每个月大概有多少生活费？"
+        elif field.startswith("income.monthly_part_time_income"):
+            question = "你每个月大概有多少兼职收入？没有的话可以直接说没有。"
+        elif field == "debts":
+            question = "你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。"
+        elif tail == "remaining_principal":
+            question = "这笔分期现在大概还欠多少钱？"
+        elif tail == "monthly_payment":
+            question = "这笔分期每个月大概还多少？"
+        elif tail == "remaining_periods":
+            question = "这笔分期还要还几个月？"
+        elif tail == "nominal_apr":
+            question = "这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。"
+        elif tail == "label":
+            question = "这个订阅或会员叫什么名字？"
+        elif tail == "monthly_cost":
+            question = "这个会员每个月大概扣多少钱？"
+        elif field == "income.positive_total":
+            question = "请确认一下你每个月的生活费和兼职收入大概是多少。"
+        else:
+            question = "请再补充一下这笔账单的还款情况。"
+        return "还差一点信息：" + question
     @staticmethod
     def _mark_unknown_apr(
         draft: AssessmentDraft,

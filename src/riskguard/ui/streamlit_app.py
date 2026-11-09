@@ -437,9 +437,13 @@ def _render_structured_tab(client: ApiClient) -> None:
 
 
 def _handle_chat_submit(client: ApiClient, message: str) -> None:
+    if st.session_state.get("confirming"):
+        st.warning("正在生成评估报告，请稍候，不要重复提交。")
+        return
     st.session_state.last_user_message = message
     st.session_state.last_agent_response = None
     st.session_state.agent_response_source = None
+    st.session_state.assessment_ready = False
     try:
         response = client.chat(
             message,
@@ -459,24 +463,38 @@ def _confirm_chat_intake(client: ApiClient) -> None:
     if not conversation_id:
         st.error("当前没有可确认的对话草稿。")
         return
+    if st.session_state.get("assessment_ready") and st.session_state.get("last_agent_response"):
+        return
+    if st.session_state.get("confirming"):
+        return
+    st.session_state.confirming = True
     try:
         response = client.confirm_intake(conversation_id)
         if response.get("session_id"):
             st.session_state.session_id = response["session_id"]
         st.session_state.last_agent_response = response
         st.session_state.agent_response_source = "chat"
+        st.session_state.assessment_ready = bool(response.get("assessment"))
         st.session_state.last_chat_response = None
         st.session_state.last_error = None
+        st.session_state.confirming = False
         st.rerun()
     except ApiClientError as exc:
+        st.session_state.confirming = False
         st.session_state.last_error = exc.message
-        st.error(exc.message)
+        if exc.status_code in (404, 409):
+            st.warning(
+                "本次草稿可能已经确认或已经过期。请查看已有报告；如果没有报告，请点击重新开始。"
+            )
+        else:
+            st.error(exc.message)
 
 
 def _render_chat_tab(client: ApiClient) -> None:
     st.header("智能对话自检")
     st.caption(
-        "可以描述自己的收入、分期、订阅和现金流，也可以询问金融概念或模拟新增分期。"
+        "建议直接描述你的收入、分期和订阅情况；系统会一次追问一个问题。"
+        "完成报告后，也可以继续询问原因、金融概念或模拟新增分期。"
     )
 
     if st.session_state.get("conversation_id"):
@@ -485,7 +503,7 @@ def _render_chat_tab(client: ApiClient) -> None:
         st.caption("当前还没有匿名对话；直接输入第一段描述即可。")
 
     message = st.chat_input(
-        "例如：我每个月生活费 2200，兼职 800，购物分期本金 4800，每月还 520，还剩 10 期，利率 12%。"
+        "回答当前问题，或直接描述：生活费、兼职收入、分期和订阅情况。"
     )
     if message:
         _handle_chat_submit(client, message)
@@ -500,7 +518,12 @@ def _render_chat_tab(client: ApiClient) -> None:
             render_chat_response(response)
 
         if response.get("status") == "ready_for_confirmation":
-            if st.button("确认并开始评估", key="confirm_chat"):
+            st.caption("请先核对以上信息。确认后才会创建正式匿名评估会话。")
+            if st.button(
+                "确认并生成评估报告",
+                key="confirm_chat",
+                disabled=bool(st.session_state.get("confirming")),
+            ):
                 _confirm_chat_intake(client)
         elif response.get("status") == "clarification_limit":
             st.caption("可切换到上方“结构化表单自检”标签页继续，或重新开始对话。")
@@ -512,6 +535,8 @@ def _render_chat_tab(client: ApiClient) -> None:
         and st.session_state.get("agent_response_source") == "chat"
     ):
         render_agent_response(st.session_state.last_agent_response)
+        if st.button("重新开始新的自检", key="restart_chat_flow"):
+            _clear_ui_state(client)
 
 
 def main() -> None:

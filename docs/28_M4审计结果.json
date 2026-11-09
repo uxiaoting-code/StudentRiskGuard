@@ -4,7 +4,7 @@
   "implementation_status": "technical_pass_pending_manual_review",
   "automated_tests": {
     "status": "passed",
-    "passed": 145,
+    "passed": 147,
     "failed": 0,
     "command": "python -m pytest -q",
     "note": "2026-11-09 在 Python 3.14 环境执行；项目声明范围仍为 Python 3.11-3.12"

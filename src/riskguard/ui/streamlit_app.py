@@ -31,19 +31,80 @@ def _new_session_id() -> str:
     return f"anon_{uuid4().hex[:12]}"
 
 
-def _render_header() -> None:
-    st.title("StudentRiskGuard")
-    st.caption("大学生负债压力自检与理性消费科普 Agent")
-    st.write(
-        "本工具仅用于金融教育与个人负债压力自查，不采集征信数据，"
-        "不评估贷款资格，不推荐借贷产品，不提供授信或放款功能。"
+def _inject_styles() -> None:
+    st.markdown(
+        """
+        <style>
+        .block-container {max-width: 1080px; padding-top: 1.5rem;}
+        .srg-hero {
+            border: 1px solid #d9e8f5;
+            border-radius: 18px;
+            padding: 1.2rem 1.4rem;
+            background: linear-gradient(135deg, #f7fbff 0%, #eef8f5 100%);
+            margin-bottom: 1rem;
+        }
+        .srg-hero .srg-title {font-size: 2rem; font-weight: 800; color: #123b5d; margin: 0;}
+        .srg-hero .srg-subtitle {font-size: 1rem; color: #31586f; margin: .35rem 0 .7rem;}
+        .srg-hero .srg-note {font-size: .9rem; color: #4d6473; margin: 0;}
+        .srg-risk-banner {
+            border-radius: 12px;
+            padding: .8rem 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: .4rem 0 1rem;
+        }
+        .srg-risk-banner strong {font-size: 1.15rem;}
+        .risk-low {background: #e8f7ee; color: #17633a; border: 1px solid #b8e2c8;}
+        .risk-watch {background: #fff8df; color: #7a5a00; border: 1px solid #f0d77a;}
+        .risk-medium {background: #fff0e3; color: #8a4410; border: 1px solid #f2bd8e;}
+        .risk-high {background: #ffebeb; color: #8b1e1e; border: 1px solid #e6a1a1;}
+        .srg-section-note {color: #5b6b75; font-size: .9rem; margin-bottom: .5rem;}
+        .srg-followup {
+            border: 1px solid #dce8ef;
+            border-radius: 12px;
+            padding: .8rem 1rem;
+            background: #f8fbfd;
+            margin-top: 1rem;
+        }
+        .srg-floating-loading {
+            position: fixed;
+            right: 24px;
+            bottom: 24px;
+            z-index: 9999;
+            padding: .75rem 1rem;
+            border-radius: 999px;
+            background: #123b5d;
+            color: white;
+            font-weight: 700;
+            box-shadow: 0 8px 24px rgba(18, 59, 93, .25);
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
     )
+
+
+def _render_header() -> None:
+    st.markdown(
+        """
+        <div class="srg-hero">
+          <div class="srg-title">StudentRiskGuard</div>
+          <div class="srg-subtitle">大学生负债压力自检与理性消费科普 Agent</div>
+          <div class="srg-note">
+            本工具仅用于金融教育与个人负债压力自查，不采集征信数据，
+            不评估贷款资格，不推荐借贷产品，不提供授信或放款功能。
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    st.warning(FIXED_BOUNDARY_NOTICE)
     st.caption(
         "自然语言输入仅用于当前会话的语义解析和金融教育回答；"
         "不用于征信、授信、审批或借贷决策。报告只使用结构化计算结果，"
         "原始文本不持久化保存。"
     )
-    st.warning(FIXED_BOUNDARY_NOTICE)
 
 
 def _clear_ui_state(client: ApiClient) -> None:
@@ -70,6 +131,9 @@ def _clear_ui_state(client: ApiClient) -> None:
         "selected_sample_id",
         "last_chat_response",
         "last_agent_response",
+        "assessment_ready",
+        "confirming",
+        "debt_label_map",
         "last_intake_response",
         "last_user_message",
         "last_error",
@@ -78,6 +142,17 @@ def _clear_ui_state(client: ApiClient) -> None:
     ):
         st.session_state[key] = None
     st.rerun()
+
+
+def _remember_debt_labels(preview: dict | None) -> None:
+    if not preview:
+        return
+    labels: dict[str, str] = {}
+    for index, debt in enumerate(preview.get("debts", []) or [], 1):
+        label = debt.get("label")
+        if label:
+            labels[f"debt_{index}"] = str(label)
+    st.session_state.debt_label_map = labels
 
 
 def _set_authenticated_user(client: ApiClient, response: dict) -> None:
@@ -148,27 +223,33 @@ def _render_auth_sidebar(client: ApiClient) -> None:
 
 
 def _render_sidebar(client: ApiClient) -> None:
-    st.sidebar.header("当前状态")
-    st.sidebar.caption(f"API：`{client.base_url}`")
-    if st.sidebar.button("检查后端连接", key="health_check"):
-        try:
-            health = client.health()
-            st.sidebar.success(
-                f"连接正常：{health.get('service', 'studentriskguard-api')}"
-            )
-        except ApiClientError as exc:
-            st.sidebar.error(exc.message)
-
-    st.sidebar.caption(f"版本：{__version__}")
+    st.sidebar.header("当前自检")
     if st.session_state.get("conversation_id"):
-        st.sidebar.code(st.session_state.conversation_id)
-    if st.sidebar.button("清空当前界面状态", key="clear_ui"):
+        st.sidebar.success("对话已开始")
+    else:
+        st.sidebar.caption("尚未开始匿名对话")
+    if st.sidebar.button("清空并重新开始", key="clear_ui"):
         _clear_ui_state(client)
+    st.sidebar.caption("可以直接描述情况，也可以切换到结构化表单。")
 
-    st.sidebar.divider()
-    st.sidebar.caption(
-        "所有数值由确定性 Python 工具计算；LLM 不参与风险评分、DTI、IRR 或现金流计算。"
-    )
+    with st.sidebar.expander("对话信息", expanded=False):
+        if st.session_state.get("conversation_id"):
+            st.code(st.session_state.conversation_id)
+        else:
+            st.caption("还没有 conversation ID。")
+        if st.sidebar.button("检查后端连接", key="health_check"):
+            try:
+                health = client.health()
+                st.sidebar.success(
+                    f"连接正常：{health.get('service', 'studentriskguard-api')}"
+                )
+            except ApiClientError as exc:
+                st.sidebar.error(exc.message)
+
+    with st.sidebar.expander("开发者信息", expanded=False):
+        st.caption(f"API：`{client.base_url}`")
+        st.caption(f"版本：{__version__}")
+        st.caption("风险指标由确定性 Python 工具计算，LLM 不参与风险评分、DTI、IRR 或现金流计算。")
 
 
 def _render_sample_buttons() -> None:
@@ -275,6 +356,7 @@ def _run_form_assessment(client: ApiClient) -> None:
         client.create_session(request)
         response = client.agent_assess(request["session_id"])
         st.session_state.session_id = request["session_id"]
+        _remember_debt_labels({"debts": request.get("debts", [])})
         st.session_state.last_agent_response = response
         st.session_state.agent_response_source = "form"
         st.session_state.last_chat_response = None
@@ -433,8 +515,10 @@ def _render_structured_tab(client: ApiClient) -> None:
         st.session_state.get("last_agent_response")
         and st.session_state.get("agent_response_source") == "form"
     ):
-        render_agent_response(st.session_state.last_agent_response)
-
+        render_agent_response(
+            st.session_state.last_agent_response,
+            debt_labels=st.session_state.get("debt_label_map") or {},
+        )
 
 def _handle_chat_submit(client: ApiClient, message: str) -> None:
     if st.session_state.get("confirming"):
@@ -450,6 +534,8 @@ def _handle_chat_submit(client: ApiClient, message: str) -> None:
             conversation_id=st.session_state.get("conversation_id"),
         )
         st.session_state.conversation_id = response.get("conversation_id")
+        if response.get("status") == "ready_for_confirmation":
+            _remember_debt_labels(response.get("preview"))
         st.session_state.last_chat_response = response
         st.session_state.last_error = None
         st.rerun()
@@ -468,8 +554,16 @@ def _confirm_chat_intake(client: ApiClient) -> None:
     if st.session_state.get("confirming"):
         return
     st.session_state.confirming = True
+    st.markdown(
+        '<div class="srg-floating-loading">⏳ 正在生成评估报告…</div>',
+        unsafe_allow_html=True,
+    )
     try:
-        response = client.confirm_intake(conversation_id)
+        with st.status("正在生成评估报告，请稍候…", expanded=False) as status:
+            st.write("正在调用风险评估工具")
+            response = client.confirm_intake(conversation_id)
+            st.write("正在整理报告")
+            status.update(label="报告已生成", state="complete")
         if response.get("session_id"):
             st.session_state.session_id = response["session_id"]
         st.session_state.last_agent_response = response
@@ -509,16 +603,25 @@ def _render_chat_tab(client: ApiClient) -> None:
         _handle_chat_submit(client, message)
 
     if st.session_state.get("last_user_message"):
-        with st.chat_message("user"):
+        with st.chat_message("user", avatar="🙂"):
             st.write(st.session_state.last_user_message)
 
     response = st.session_state.get("last_chat_response")
     if response:
-        with st.chat_message("assistant"):
+        with st.chat_message("assistant", avatar="🛡️"):
             render_chat_response(response)
 
         if response.get("status") == "ready_for_confirmation":
-            st.caption("请先核对以上信息。确认后才会创建正式匿名评估会话。")
+            st.caption(
+                "还想补充？可以直接在下方输入框继续回答；"
+                "确认后才会创建正式匿名评估会话。"
+            )
+            if st.button(
+                "继续补充信息",
+                key="continue_intake",
+            ):
+                st.session_state.last_user_message = None
+                st.info("请直接输入要补充的信息，例如“我还有一笔白条分期”。")
             if st.button(
                 "确认并生成评估报告",
                 key="confirm_chat",
@@ -534,7 +637,30 @@ def _render_chat_tab(client: ApiClient) -> None:
         st.session_state.get("last_agent_response")
         and st.session_state.get("agent_response_source") == "chat"
     ):
-        render_agent_response(st.session_state.last_agent_response)
+        render_agent_response(
+            st.session_state.last_agent_response,
+            debt_labels=st.session_state.get("debt_label_map") or {},
+        )
+        st.markdown('<div class="srg-followup">', unsafe_allow_html=True)
+        st.markdown("**继续追问这份报告**")
+        st.caption("不需要重新开始，可以继续问原因、概念或做情景模拟。")
+        questions = (
+            (st.session_state.last_agent_response.get("explanation") or {})
+            .get("questions_to_consider", [])
+        )
+        if questions:
+            st.caption("也可以直接点击一个问题继续问 Agent：")
+            for index, question in enumerate(questions[:3]):
+                if st.button(question, key=f"follow_question_{index}"):
+                    _handle_chat_submit(client, str(question))
+        col1, col2, col3 = st.columns(3)
+        if col1.button("为什么是这个等级？", key="follow_why"):
+            _handle_chat_submit(client, "为什么我是这个风险等级？")
+        if col2.button("什么是真实年化成本？", key="follow_irr"):
+            _handle_chat_submit(client, "什么是真实年化成本和 IRR？")
+        if col3.button("模拟新增一笔分期", key="follow_scenario"):
+            _handle_chat_submit(client, "如果我新增一笔分期会怎样？")
+        st.markdown("</div>", unsafe_allow_html=True)
         if st.button("重新开始新的自检", key="restart_chat_flow"):
             _clear_ui_state(client)
 
@@ -548,6 +674,7 @@ def main() -> None:
     init_state()
     client = ApiClient()
     client.set_access_token(st.session_state.get("auth_token"))
+    _inject_styles()
     _render_header()
     _render_auth_sidebar(client)
     _render_sidebar(client)

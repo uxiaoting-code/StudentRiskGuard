@@ -43,3 +43,29 @@ def format_review_status(value: Any) -> str:
         "approved": "已审核",
     }
     return mapping.get(str(value), str(value) if value is not None else "—")
+DIMENSION_LABELS = {
+    "debt_to_income": "月供收入比",
+    "debt_stack": "多笔负债叠加",
+    "real_cost": "真实资金成本",
+    "behavior_resilience": "行为与韧性",
+}
+
+RISK_DIMENSION_LABELS = DIMENSION_LABELS
+
+
+def format_dimension(value: str | None) -> str:
+    if not value:
+        return "—"
+    return DIMENSION_LABELS.get(value, value)
+
+
+def format_debt_name(debt_id: str | None, labels: dict[str, str] | None = None) -> str:
+    if not debt_id:
+        return "—"
+    if labels and debt_id in labels:
+        return labels[debt_id]
+    if debt_id.startswith("debt_"):
+        suffix = debt_id.removeprefix("debt_")
+        if suffix.isdigit():
+            return f"第 {suffix} 笔分期"
+    return debt_id

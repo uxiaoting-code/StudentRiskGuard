@@ -8,6 +8,8 @@ import streamlit as st
 
 from riskguard.ui.formatting import (
     format_currency,
+    format_debt_name,
+    format_dimension,
     format_rate,
     format_review_status,
     format_risk_level,
@@ -77,10 +79,29 @@ def render_explanation(explanation: dict[str, Any] | None) -> None:
     st.caption(explanation.get("boundary_notice", FIXED_BOUNDARY_NOTICE))
 
 
-def render_assessment(result: dict[str, Any], *, title: str = "风险报告") -> None:
+def render_assessment(
+    result: dict[str, Any],
+    *,
+    title: str = "风险报告",
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     st.subheader(title)
     risk = result.get("risk", {})
     metrics = result.get("metrics", {})
+    risk_level = format_risk_level(risk.get("level"))
+    risk_class = {
+        "低风险": "risk-low",
+        "关注": "risk-watch",
+        "中风险": "risk-medium",
+        "高风险": "risk-high",
+    }.get(risk_level, "risk-watch")
+    st.markdown(
+        f"<div class='srg-risk-banner {risk_class}'>"
+        f"<strong>{risk_level}</strong>"
+        f"<span>风险分数 {risk.get('score', '—')} / 100</span>"
+        "</div>",
+        unsafe_allow_html=True,
+    )
 
     col1, col2, col3, col4 = st.columns(4)
     col1.metric("风险分数", risk.get("score", "—"))
@@ -100,7 +121,7 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
         st.table(
             [
                 {
-                    "维度": item.get("id", ""),
+                    "维度": format_dimension(item.get("id")),
                     "原始值": item.get("raw_value", "—"),
                     "得分": item.get("score", "—"),
                     "最大分": item.get("max_score", "—"),
@@ -118,7 +139,7 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
         st.table(
             [
                 {
-                    "债务 ID": item.get("debt_id", ""),
+                    "债务名称": format_debt_name(item.get("debt_id"), debt_labels),
                     "状态": item.get("status", ""),
                     "月 IRR": (
                         format_rate(item.get("monthly_irr"))
@@ -168,7 +189,11 @@ def render_assessment(result: dict[str, Any], *, title: str = "风险报告") ->
                 st.write(f"- {warning}")
 
 
-def render_agent_response(response: dict[str, Any]) -> None:
+def render_agent_response(
+    response: dict[str, Any],
+    *,
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     status = response.get("status")
     if response.get("degraded"):
         st.warning("智能解读已降级；确定性计算结果仍然可用。")
@@ -180,7 +205,7 @@ def render_agent_response(response: dict[str, Any]) -> None:
         return
 
     if response.get("assessment"):
-        render_assessment(response["assessment"])
+        render_assessment(response["assessment"], debt_labels=debt_labels)
     if response.get("explanation"):
         render_explanation(response["explanation"])
     render_tool_activity(response.get("tool_activity"))
@@ -368,7 +393,7 @@ def render_chat_response(response: dict[str, Any]) -> None:
         if response.get("scenario"):
             render_scenario(response["scenario"])
         if response.get("assessment"):
-            render_assessment(response["assessment"])
+            render_assessment(response["assessment"], debt_labels=debt_labels)
         if response.get("explanation"):
             render_explanation(response["explanation"])
         render_tool_activity(response.get("tool_activity"))

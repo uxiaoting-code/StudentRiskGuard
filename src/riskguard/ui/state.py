@@ -19,6 +19,7 @@ DEFAULTS: dict[str, Any] = {
     "agent_response_source": None,
     "assessment_ready": False,
     "confirming": False,
+    "debt_label_map": {},
     "last_intake_response": None,
     "last_user_message": None,
     "last_error": None,

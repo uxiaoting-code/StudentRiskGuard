@@ -609,7 +609,10 @@ def _render_chat_tab(client: ApiClient) -> None:
     response = st.session_state.get("last_chat_response")
     if response:
         with st.chat_message("assistant", avatar="🛡️"):
-            render_chat_response(response)
+            render_chat_response(
+                response,
+                debt_labels=st.session_state.get("debt_label_map") or {},
+            )
 
         if response.get("status") == "ready_for_confirmation":
             st.caption(

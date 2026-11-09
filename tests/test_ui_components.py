@@ -108,3 +108,25 @@ def test_unknown_apr_preview_is_not_rendered_as_zero(monkeypatch) -> None:
     assert "名义利率未知" in visible
     assert "真实成本解释受限" in visible
     assert "0.00%" not in visible
+def test_completed_chat_response_forwards_debt_labels(monkeypatch) -> None:
+    captured: dict[str, Any] = {}
+
+    def fake_assessment(result, *, title="风险报告", debt_labels=None):
+        captured["debt_labels"] = debt_labels
+
+    monkeypatch.setattr(components, "render_assessment", fake_assessment)
+    monkeypatch.setattr(components, "render_explanation", lambda explanation: None)
+    monkeypatch.setattr(components, "render_tool_activity", lambda activities: None)
+    monkeypatch.setattr(components, "render_boundary_notice", lambda: None)
+
+    components.render_chat_response(
+        {
+            "status": "completed",
+            "assessment": {"dummy": True},
+            "explanation": {},
+            "tool_activity": [],
+        },
+        debt_labels={"debt_1": "花呗"},
+    )
+
+    assert captured["debt_labels"] == {"debt_1": "花呗"}

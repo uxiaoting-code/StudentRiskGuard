@@ -337,7 +337,11 @@ def render_scenario(result: dict[str, Any]) -> None:
     )
 
 
-def render_chat_response(response: dict[str, Any]) -> None:
+def render_chat_response(
+    response: dict[str, Any],
+    *,
+    debt_labels: dict[str, str] | None = None,
+) -> None:
     status = response.get("status")
     if status == "needs_more_info":
         st.warning(response.get("reply", "还需要补充一点信息。"))

@@ -1,5 +1,11 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
+from riskguard.agent.safety import is_safe_text
 from riskguard.agent.safety import build_grounded_explanation, is_safe_explanation
 from riskguard.models import Explanation, FIXED_BOUNDARY_NOTICE, RiskSource
 
@@ -75,3 +81,20 @@ def test_grounded_explanation_discards_freeform_model_text() -> None:
         source.dimension_id in {item.id for item in result.risk.dimensions}
         for source in grounded.risk_sources
     )
+
+
+SAFETY_CASES_PATH = Path(__file__).resolve().parent / "fixtures" / "safety_cases.json"
+
+
+@pytest.mark.parametrize(
+    "case",
+    json.loads(SAFETY_CASES_PATH.read_text(encoding="utf-8")),
+    ids=lambda case: case["category"] + "-" + str(case["text"]),
+)
+def test_forbidden_safety_cases_are_blocked(case: dict[str, str]) -> None:
+    assert not is_safe_text(case["text"])
+
+
+def test_safe_educational_text_is_not_falsely_blocked() -> None:
+    assert is_safe_text("应该先核对每笔分期剩余期数和现金流。")
+    assert is_safe_text("低月供不等于低总成本。")

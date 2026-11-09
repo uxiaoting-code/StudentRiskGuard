@@ -20,8 +20,8 @@ T18,输入页面,P0,计算机,4,5,"T03,T08",src/riskguard/ui/streamlit_app.py; s
 T19,结果页面,P0,计算机,5,5,"T12,T18",src/riskguard/ui/,分数、等级、贡献、IRR、现金流,页面数字与工具结果一致,code_complete_pending_manual_ui
 T20,Agent 轨迹展示,P1,计算机,5,5,"T15,T19",src/riskguard/ui/components.py,工具名、状态、耗时展示,不展示思维链，仅展示工具执行轨迹,code_complete_pending_manual_ui
 T21,新增分期模拟,P1,计算机,5,6,"T12,T13,T19",src/riskguard/services/scenario_service.py; src/riskguard/ui/,新增分期前后对比,不覆盖原始评估；前后差值与手算一致,code_complete_pending_manual_ui
-T22,安全校验,P0,计算机,6,6,"T15,T16",src/riskguard/agent/safety.py; tests/test_safety.py,Schema、禁止意图、边界声明校验,违规输出全部替换为安全模板,todo
-T23,隐私与日志,P0,计算机,6,6,"T11,T14",src/riskguard/services/; src/riskguard/api/,日志脱敏、内存会话清理,日志不含金额/明细；无持久化个人数据,todo
+T22,安全校验,P0,计算机,6,6,"T15,T16",src/riskguard/agent/safety.py; tests/test_safety.py,Schema、禁止意图、边界声明校验,违规输出全部替换为安全模板,code_complete_pending_manual_review
+T23,隐私与日志,P0,计算机,6,6,"T11,T14",src/riskguard/services/; src/riskguard/api/,日志脱敏、内存会话清理,日志不含金额/明细；无持久化个人数据,code_complete_pending_manual_review
 T24,公开部署,P0,计算机,7,7,"T02,T19",Dockerfile; README.md; HuggingFace 配置,公开可访问链接,另一台设备可完成主流程,todo
 T25,端到端测试,P0,共同,8,8,"T15,T19,T21,T22,T24",tests/; docs/06_Demo与验收清单.md,E2E 测试与验收记录,四类样本全流程通过；降级路径通过,todo
 T26,样本回归,P0,共同,8,8,"T06,T08,T25",tests/; contracts/demo_cases.json,四类样本回归结果,等级、关键指标和解释边界符合预期,todo

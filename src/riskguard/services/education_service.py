@@ -8,6 +8,7 @@ from pathlib import Path
 
 from riskguard.agent.deepseek import ChatModel
 from riskguard.agent.prompts import build_education_messages
+from riskguard.agent.safety import is_safe_text
 from riskguard.agent.schemas import EducationAnswer, EducationCard, EducationSelection
 from riskguard.models import FIXED_BOUNDARY_NOTICE
 
@@ -131,6 +132,8 @@ class EducationService:
         answer = "；".join(excerpts)
         if len(answer) > 1200:
             raise ValueError("composed education answer is too long")
+        if not is_safe_text(answer):
+            raise ValueError("composed education answer failed safety validation")
         return EducationAnswer(
             answer=answer,
             source_excerpts=excerpts,
@@ -144,6 +147,9 @@ class EducationService:
         excerpts = list(card.key_points[:2])
         if card.allowed_actions:
             excerpts.append(card.allowed_actions[0])
+        answer = "；".join(excerpts)
+        if not is_safe_text(answer):
+            excerpts = ["当前内容需要进一步审核，请先核对分期成本和现金流。"]
         return EducationAnswer(
             answer="；".join(excerpts),
             source_excerpts=excerpts,

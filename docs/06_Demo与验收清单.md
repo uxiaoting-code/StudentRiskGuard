@@ -246,3 +246,17 @@
 - [x] 用户明确提供的剩余期数不会被覆盖。
 - [x] 预览显示系统推导的期数说明。
 - [x] 全量测试通过。
+
+## 16. M6 安全、隐私与降级验收
+
+- [x] Explanation Schema 和固定边界声明校验。
+- [x] 非法 dimension_id 触发模板降级。
+- [x] 解释中的未授权阿拉伯数字触发模板降级。
+- [x] 平台、审批、额度、通过率、收益承诺和以贷养贷内容被阻断。
+- [x] 模型超时、非法 JSON、缺少 tool_call 和工具失败有降级路径。
+- [x] 降级时仍展示确定性 AssessmentResult 和模板 Explanation。
+- [x] 认证数据库不保存财务字段或聊天文本。
+- [x] 删除会话清理 ChatMemoryStore、DraftStore、ConversationStore、ScenarioStore 和 SessionStore。
+- [x] 全量 pytest、compileall 和 git diff --check 通过。
+- [ ] 真实浏览器安全交互人工复核。
+- [ ] 真实 DeepSeek 安全降级联调。

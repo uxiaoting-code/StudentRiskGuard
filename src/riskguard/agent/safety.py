@@ -15,27 +15,74 @@ from riskguard.models.assessment import AssessmentResult
 FORBIDDEN_EXPLANATION_TERMS = (
     "借款平台",
     "贷款平台",
+    "分期平台",
+    "借贷产品",
+    "借钱平台",
+    "网贷平台",
     "推荐平台",
     "哪家平台",
     "哪个平台",
+    "推荐品牌",
     "保证收益",
     "承诺收益",
+    "投资收益",
+    "稳赚",
+    "保本",
     "保证解决",
+    "保证还清",
+    "保证消除逾期",
+    "保证能借到钱",
     "审批通过",
+    "贷款可以批",
+    "能批",
+    "包过",
+    "稳过",
     "授信额度",
+    "提高额度",
     "通过率",
     "放款",
+    "下款",
     "以贷养贷",
+    "借新还旧",
+    "借新债还旧债",
+    "身份证",
+    "学号",
+    "银行卡号",
+    "征信报告",
+    "真实账单",
 )
 
 FORBIDDEN_EXPLANATION_PATTERNS = (
-    r"(贷款|分期|申请).{0,8}(可以批|能批|批得下来|能过|包过|稳过)",
-    r"(提高|提升|增加).{0,6}(额度|授信)",
-    r"(保证|承诺|稳赚|保本).{0,8}(收益|回报|赚钱)",
-    r"(irr|真实年化).{0,12}(收益|回报|赚钱)",
-    r"(建议|推荐).{0,8}(借钱|贷款|借贷|平台)",
-    r"(用|靠).{0,8}(借新|新借款|贷款|借款).{0,8}(还旧|旧债|还款)",
+    r"(贷款|分期|申请).{0,12}(可以批|能批|批得下来|能过|包过|稳过|可以通过|可批)",
+    r"(提高|提升|增加|申请).{0,8}(额度|授信|信用额度)",
+    r"(保证|承诺|稳赚|保本|包赚).{0,10}(收益|回报|赚钱|不亏)",
+    r"(irr|真实年化).{0,15}(收益|回报|赚钱|投资机会)",
+    r"(建议|推荐|选择).{0,12}(借钱|贷款|借贷|平台|品牌|产品)",
+    r"(用|靠|通过).{0,12}(借新|新借款|贷款|借款|分期).{0,12}(还旧|旧债|还款|周转)",
+    r"(上传|提供|填写).{0,10}(身份证|学号|银行卡|征信|真实账单)",
 )
+
+
+def normalize_for_safety(text: str) -> str:
+    """Normalize common obfuscation before deterministic keyword checks."""
+
+    normalized = text.lower()
+    normalized = re.sub(r"[\s\u3000,，。.!！?？:：;；、/\\|_\-]+", "", normalized)
+    return normalized
+
+
+def is_safe_text(text: str) -> bool:
+    normalized = normalize_for_safety(text)
+    if any(term in normalized for term in FORBIDDEN_EXPLANATION_TERMS):
+        return False
+    return not any(
+        re.search(pattern, normalized)
+        for pattern in FORBIDDEN_EXPLANATION_PATTERNS
+    )
+
+
+def contains_unauthorized_number(text: str) -> bool:
+    return bool(re.search(r"\d", text))
 
 
 def explanation_narrative(explanation: Explanation) -> str:
@@ -52,14 +99,7 @@ def explanation_narrative(explanation: Explanation) -> str:
 
 def is_safe_explanation(explanation: Explanation) -> bool:
     narrative = explanation_narrative(explanation)
-    normalized = re.sub(r"\s+", "", narrative).lower()
-    if any(term in normalized for term in FORBIDDEN_EXPLANATION_TERMS):
-        return False
-    if any(re.search(pattern, normalized) for pattern in FORBIDDEN_EXPLANATION_PATTERNS):
-        return False
-    if re.search(r"\d", narrative):
-        return False
-    return True
+    return is_safe_text(narrative) and not contains_unauthorized_number(narrative)
 
 
 _DIMENSION_COPY: dict[str, tuple[str, str]] = {
@@ -124,7 +164,7 @@ def build_grounded_explanation(
         actions=[
             "先把每笔分期的月供和剩余期数写在一起，看看加起来会不会压到生活费。",
             "优先检查金额最高、期限最长的那一笔，不要只看单笔月供看起来不高。",
-            "如果这个月已经要靠新增分期周转，先暂停新的消费分期，重新核对现金流。",
+            "如果这个月已经需要新增分期来维持支出，先暂停新的消费分期，重新核对现金流。",
             "给自己留一点现金缓冲，遇到收入波动时先降低可选消费。",
         ],
         education=[

@@ -1,0 +1,38 @@
+{
+  "module_id": "M6",
+  "updated_at": "2026-11-09",
+  "implementation_status": "code_complete_pending_manual_review",
+  "tasks": ["T22", "T23"],
+  "safety": {
+    "explanation_schema_checked": true,
+    "grounded_dimensions": true,
+    "unauthorized_numbers_blocked": true,
+    "fixed_boundary_notice": true,
+    "forbidden_content_suite": true,
+    "safety_cases": 26
+  },
+  "degradation": {
+    "model_timeout": true,
+    "invalid_json": true,
+    "invalid_explanation": true,
+    "missing_tool_call": true,
+    "tool_failure": true,
+    "invalid_dimension": true,
+    "template_fallback": true
+  },
+  "privacy": {
+    "raw_text_persisted": false,
+    "raw_text_logged": false,
+    "raw_text_written_to_database": false,
+    "raw_text_written_to_localstorage": false,
+    "full_chat_history_sent_to_llm": false,
+    "complete_financial_profile_sent_to_report_llm": false,
+    "auth_database_financial_fields": false
+  },
+  "pending": [
+    "manual browser safety review",
+    "real DeepSeek re-verification",
+    "economic statistics content signoff",
+    "M7 deployment"
+  ]
+}

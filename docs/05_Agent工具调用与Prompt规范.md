@@ -415,3 +415,13 @@ Prompt 必须明确要求：
 ### 14.4 情景与科普
 
 科普模型只使用当前问题和当前教育卡片；情景模型只使用当前情景描述、当前结构化会话状态和必要 Schema。两者都不得接收完整聊天历史。
+## 15. M5.6 审查修复后的 grounding 规则
+
+- 风险解释模型只负责选择 `AssessmentResult.risk.dimensions` 中存在的维度；
+- 后端丢弃模型自由生成的 summary、risk source、actions、education 和 question 文本；
+- 后端使用固定受控句子重新组装 Explanation；
+- 任意未授权维度、阿拉伯数字或违规表述触发模板降级；
+- 教育问答模型只选择卡片中的 `key_point_indices` 和 `action_indices`；
+- 教育答案由后端从卡片原文逐字组装，非法编号触发模板回退；
+- `/api/v1/agent/chat` 的可恢复错误必须返回真实 4xx，不使用 HTTP 200 伪装错误；
+- 达到 20 笔债务、情景未完成等边界必须在进入 M2 前拦截。

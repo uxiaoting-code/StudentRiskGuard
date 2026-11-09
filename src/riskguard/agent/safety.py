@@ -9,7 +9,8 @@ from __future__ import annotations
 
 import re
 
-from riskguard.models.agent import Explanation
+from riskguard.models.agent import Explanation, FIXED_BOUNDARY_NOTICE, RiskSource
+from riskguard.models.assessment import AssessmentResult
 
 FORBIDDEN_EXPLANATION_TERMS = (
     "借款平台",
@@ -59,3 +60,79 @@ def is_safe_explanation(explanation: Explanation) -> bool:
     if re.search(r"\d", narrative):
         return False
     return True
+
+
+_DIMENSION_COPY: dict[str, tuple[str, str]] = {
+    "debt_to_income": (
+        "月供压力",
+        "固定支出占可支配资金的比例需要关注。",
+    ),
+    "debt_stack": (
+        "负债叠加",
+        "多笔固定还款叠加后，月度现金流管理空间会变小。",
+    ),
+    "real_cost": (
+        "真实成本",
+        "分期成本应结合期限和还款安排一起理解，不能只看表面月供。",
+    ),
+    "behavior_resilience": (
+        "行为与韧性",
+        "收入波动和还款习惯会影响后续现金流安全边际。",
+    ),
+}
+
+_SUMMARY_COPY = {
+    "低风险": "当前风险信号相对平稳，仍需持续关注固定支出和现金流变化。",
+    "关注": "当前存在需要关注的负债压力信号，建议持续核对现金流。",
+    "中风险": "当前固定支出和负债结构对现金流形成明显压力。",
+    "高风险": "当前负债压力较高，需要优先核对现金流和还款安排。",
+}
+
+
+def build_grounded_explanation(
+    selection: Explanation,
+    result: AssessmentResult,
+) -> Explanation:
+    """Rebuild explanation text from structured evidence only.
+
+    The model may choose evidence dimensions, but free-form text is discarded.
+    This keeps the final explanation deterministic and grounded in the tool
+    result while preserving the existing Explanation API shape.
+    """
+
+    allowed_ids = {dimension.id for dimension in result.risk.dimensions}
+    selected_ids = [
+        item.dimension_id
+        for item in selection.risk_sources
+        if item.dimension_id in allowed_ids
+    ]
+    if not selected_ids:
+        raise ValueError("explanation has no grounded dimensions")
+
+    ordered_ids = list(dict.fromkeys(selected_ids))
+    sources = [
+        RiskSource(
+            dimension_id=dimension_id,
+            title=_DIMENSION_COPY[dimension_id][0],
+            detail=_DIMENSION_COPY[dimension_id][1],
+        )
+        for dimension_id in ordered_ids
+    ]
+    return Explanation(
+        summary=_SUMMARY_COPY[result.risk.level],
+        risk_sources=sources,
+        actions=[
+            "核对每笔分期的月供和剩余期数。",
+            "检查未来数月的基本生活支出。",
+            "在收入下降时预留现金流缓冲。",
+        ],
+        education=[
+            "低月供不等于低总成本，应关注期限和真实成本。",
+            "遇到还款压力时，应优先核对现金流并寻求可靠的学校或家庭支持。",
+        ],
+        questions_to_consider=[
+            "收入下降时是否仍能覆盖固定支出？",
+            "未来几个月是否有足够的现金缓冲？",
+        ],
+        boundary_notice=FIXED_BOUNDARY_NOTICE,
+    )

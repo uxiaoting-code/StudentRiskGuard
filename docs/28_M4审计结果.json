@@ -1,10 +1,10 @@
 {
   "module_id": "M4",
   "updated_at": "2026-11-09",
-  "implementation_status": "technical_pass",
+  "implementation_status": "technical_pass_pending_manual_review",
   "automated_tests": {
     "status": "passed",
-    "passed": 134,
+    "passed": 139,
     "failed": 0,
     "command": "python -m pytest -q",
     "note": "2026-11-09 在 Python 3.14 环境执行；项目声明范围仍为 Python 3.11-3.12"
@@ -26,6 +26,7 @@
   "education_review_status": "pending",
   "privacy_scope": "scheme_a_current_turn_only",
   "privacy_review_status": "pending_economic_and_project_manual_review",
+  "audit_remediation_status": "code_complete_pending_final_review",
   "pending": [
     "M5 page privacy notice manual verification",
     "education-card economic signoff",
@@ -33,7 +34,7 @@
     "M6 full safety and privacy test suite"
   ],
   "m4a": {
-    "status": "technical_pass",
+    "status": "technical_pass_pending_manual_review",
     "natural_language_intake": true,
     "draft_store_ttl_seconds": 1800,
     "max_clarification_turns": 8,
@@ -41,7 +42,7 @@
     "raw_text_persisted_to_disk": false
   },
   "m4b": {
-    "status": "technical_pass",
+    "status": "technical_pass_pending_manual_review",
     "chat_endpoint": "/api/v1/agent/chat",
     "intent_routes": [
       "assessment_intake",

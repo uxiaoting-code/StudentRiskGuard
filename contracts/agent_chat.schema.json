@@ -667,6 +667,40 @@
       "title": "EducationCard",
       "type": "object"
     },
+    "EducationSelection": {
+      "additionalProperties": false,
+      "description": "Model output is limited to selecting reviewed card source items.",
+      "properties": {
+        "topic_id": {
+          "minLength": 1,
+          "title": "Topic Id",
+          "type": "string"
+        },
+        "key_point_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Key Point Indices",
+          "type": "array"
+        },
+        "action_indices": {
+          "items": {
+            "type": "integer"
+          },
+          "maxItems": 1,
+          "title": "Action Indices",
+          "type": "array"
+        }
+      },
+      "required": [
+        "topic_id",
+        "key_point_indices"
+      ],
+      "title": "EducationSelection",
+      "type": "object"
+    },
     "Explanation": {
       "additionalProperties": false,
       "properties": {

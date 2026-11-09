@@ -763,3 +763,57 @@ def test_unknown_nominal_apr_can_complete_and_is_not_treated_as_zero() -> None:
     assert confirmed.assessment is not None
     assert any("名义利率未知" in warning for warning in confirmed.assessment.warnings)
     assert len(sessions) == 1
+def test_apr_not_mentioned_is_asked_once_then_unknown_is_accepted() -> None:
+    missing_apr = extraction_response(
+        {
+            "status": "needs_more_info",
+            "draft": {
+                "income": {
+                    "monthly_disposable_allowance": 2000,
+                    "monthly_part_time_income": 500,
+                },
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "remaining_principal": 1000,
+                        "monthly_payment": 300,
+                        "remaining_periods": 5,
+                        "nominal_apr_status": "not_mentioned",
+                    }
+                ],
+                "no_debts": False,
+            },
+        }
+    )
+    unknown_apr = extraction_response(
+        {
+            "status": "complete",
+            "draft": {
+                "debts": [
+                    {
+                        "label": "花呗",
+                        "nominal_apr": None,
+                        "nominal_apr_status": "unknown",
+                    }
+                ]
+            },
+        }
+    )
+    service, model, _, _ = build_service([missing_apr, unknown_apr])
+
+    first = service.submit(NaturalLanguageIntakeRequest(message="我有花呗和收入信息"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="利率我不知道。",
+        )
+    )
+
+    assert first.status == "needs_more_info"
+    assert any(field.endswith(".nominal_apr") for field in first.missing_fields)
+    assert second.status == "ready_for_confirmation"
+    assert second.preview is not None
+    assert second.preview["debts"][0].get("nominal_apr") is None
+    assert "nominal_apr_status" not in second.preview["debts"][0]
+    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
+    assert second_prompt["existing_draft"]["debts"][0]["nominal_apr_status"] == "not_mentioned"

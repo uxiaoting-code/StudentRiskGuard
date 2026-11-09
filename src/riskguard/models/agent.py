@@ -48,6 +48,7 @@ class AgentError(ContractModel):
 
 class AgentResponse(ContractModel):
     request_id: str = Field(min_length=1)
+    session_id: str | None = Field(default=None, min_length=1, max_length=64)
     status: AgentStatus
     degraded: bool
     tool_activity: list[ToolActivity]

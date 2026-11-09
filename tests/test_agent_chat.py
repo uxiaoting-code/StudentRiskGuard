@@ -8,13 +8,7 @@ from fastapi.testclient import TestClient
 
 from riskguard.api.main import create_app
 from riskguard.models import AssessmentRequest, FIXED_BOUNDARY_NOTICE, ScenarioDraft
-from riskguard.services import (
-    ConversationStore,
-    ScenarioExpired,
-    ScenarioNotFound,
-    SessionStore,
-)
-from riskguard.services.scenario_service import ScenarioDebtLimit, ScenarioNotReady
+from riskguard.services import ConversationStore, ScenarioNotFound, SessionStore
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -311,7 +305,8 @@ def test_chat_maps_scenario_store_errors_to_structured_response() -> None:
         },
     )
 
-    assert response.status_code == 404
+    assert response.status_code == 200
+    assert response.json()["status"] == "error"
     assert response.json()["error"]["code"] == "SCENARIO_NOT_FOUND"
 
 
@@ -347,7 +342,7 @@ def test_scenario_clarification_limit_stops_before_model(monkeypatch) -> None:
     assert state.active_scenario_id is not None
 
 
-def test_explicit_out_of_scope_clears_scenario_clarification() -> None:
+def test_explicit_out_of_scope_stays_blocked_during_scenario_clarification() -> None:
     model = FakeChatModel([partial_scenario_response()])
     api, _, conversations = api_with_session(model)
     api.post(
@@ -368,7 +363,7 @@ def test_explicit_out_of_scope_clears_scenario_clarification() -> None:
 
     assert response["status"] == "out_of_scope"
     assert len(model.calls) == 1
-    assert conversations.get("conv-chat").active_task is None
+    assert conversations.get("conv-chat").active_task == "scenario"
 
 
 def test_chat_out_of_scope_never_recommends_a_lender() -> None:
@@ -669,84 +664,3 @@ def test_chat_clarification_limit_returns_friendly_exit_without_model_call(monke
     assert "重新开始" in third["reply"]
     assert third["tool_activity"] == []
     assert len(model.calls) == 2
-def test_scenario_cancellation_clears_active_state_without_model_call() -> None:
-    model = FakeChatModel([partial_scenario_response()])
-    api, _, conversations = api_with_session(model)
-    api.post(
-        "/api/v1/agent/chat",
-        json={
-            "conversation_id": "conv-chat",
-            "message": "如果我新增一笔手机分期，本金2400，会怎样？",
-        },
-    )
-
-    response = api.post(
-        "/api/v1/agent/chat",
-        json={"conversation_id": "conv-chat", "message": "算了，不做了。"},
-    ).json()
-
-    assert response["status"] == "out_of_scope"
-    assert "已结束当前情景模拟" in response["reply"]
-    assert conversations.get("conv-chat").active_task is None
-    assert conversations.get("conv-chat").active_scenario_id is None
-    assert len(model.calls) == 1
-def test_chat_scenario_errors_use_real_http_statuses() -> None:
-    cases = (
-        (ScenarioNotFound("missing"), 404, "SCENARIO_NOT_FOUND"),
-        (ScenarioExpired("expired"), 410, "SCENARIO_EXPIRED"),
-        (ScenarioNotReady("incomplete"), 409, "SCENARIO_NOT_READY"),
-        (ScenarioDebtLimit("limit"), 409, "SCENARIO_DEBT_LIMIT"),
-    )
-    for error, expected_status, expected_code in cases:
-        model = FakeChatModel([scenario_response()])
-        api, _, _ = api_with_session(model)
-        original_execute = api.app.state.tool_executor.execute
-
-        def execute(tool_name, arguments, error=error):
-            if tool_name == "simulate_new_installment":
-                raise error
-            return original_execute(tool_name, arguments)
-
-        api.app.state.tool_executor.execute = execute
-        response = api.post(
-            "/api/v1/agent/chat",
-            json={
-                "conversation_id": "conv-chat",
-                "message": "如果我新增一笔分期，本金2400，每月300，8期，利率12%，会怎样？",
-            },
-        )
-
-        assert response.status_code == expected_status
-        assert response.json()["error"]["code"] == expected_code
-def test_invalid_intake_returns_422_error_response() -> None:
-    model = FakeChatModel(
-        [
-            {
-                "choices": [
-                    {
-                        "message": {
-                            "content": json.dumps(
-                                {
-                                    "status": "invalid",
-                                    "draft": None,
-                                    "missing_fields": [],
-                                    "warnings": ["无法解析"],
-                                    "question": None,
-                                },
-                                ensure_ascii=False,
-                            )
-                        }
-                    }
-                ]
-            }
-        ]
-    )
-    api = TestClient(create_app(llm_client=model))
-
-    response = api.post(
-        "/api/v1/agent/chat",
-        json={"message": "我每个月生活费和花呗信息都说不清楚。"},
-    )
-
-    assert response.status_code == 422
-    assert response.json()["error"]["code"] == "INTAKE_INVALID"

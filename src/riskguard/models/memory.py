@@ -74,7 +74,6 @@ class DebtDraft(ContractModel):
     monthly_payment: float | None = Field(default=None, gt=0, le=100_000)
     remaining_periods: int | None = Field(default=None, ge=0, le=120)
     nominal_apr: float | None = Field(default=None, ge=0, le=1)
-    nominal_apr_status: Literal["not_mentioned", "unknown", "provided"] | None = None
     settled: bool | None = None
 
 

@@ -171,20 +171,6 @@
           "type": "null"
         }
       ]
-    },
-    "session_id": {
-      "anyOf": [
-        {
-          "type": "string",
-          "minLength": 1,
-          "maxLength": 64
-        },
-        {
-          "type": "null"
-        }
-      ],
-      "default": null,
-      "title": "Session Id"
     }
   }
 }

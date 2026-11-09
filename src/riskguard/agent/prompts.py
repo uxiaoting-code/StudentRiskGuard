@@ -50,9 +50,8 @@ EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽�
 20. 用户纠正已有字段时以本轮明确表达为准；用户没有提到的已知字段必须保留。
 21. 不要编造用户没有提供的金额、期数、利率或订阅费用；不要重复询问 existing_draft 中已经存在的字段。
 22. 已结清负债和订阅规则不得回退：已结清记录不进入正式债务，订阅只进入 recurring_subscriptions。
-23. 用户明确说利率“不知道、不清楚、没告诉我”时，nominal_apr 必须为 null，nominal_apr_status 必须为 unknown；不能写成 0，其他字段完整时仍可返回 complete。
-24. 用户尚未提到利率时，nominal_apr_status 使用 not_mentioned；用户提供了具体利率时使用 provided。
-25. 不要输出用户原文，不要复述整段自然语言。"""
+23. 用户明确说利率“不知道、不清楚、没告诉我”时，nominal_apr 必须为 null，不能写成 0；其他字段完整时仍可返回 complete。
+24. 不要输出用户原文，不要复述整段自然语言。"""
 
 EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，面向中国在校大学生提供负债压力自查和理性消费科普。
 你只接收结构化 AssessmentResult，不接收原始聊天文本、完整聊天历史或完整财务档案。
@@ -69,9 +68,7 @@ EXPLANATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的交互推理 Agent，
 9. 不重复任何阿拉伯数字；具体数值由前端从 AssessmentResult 渲染。
 10. boundary_notice 必须逐字等于：
 {FIXED_BOUNDARY_NOTICE}
-11. 输出字段必须完整符合提供的 Explanation Schema。
-12. risk_sources 只用于选择证据维度；后端会丢弃自由文本，并根据合法 dimension_id 重新组装最终解释。
-13. 不要输出任何未经工具结果授权的金额、利率、期数、概率、审批、额度或放款事实。"""
+11. 输出字段必须完整符合提供的 Explanation Schema。"""
 
 
 def build_tool_messages(session_id: str) -> list[dict[str, Any]]:

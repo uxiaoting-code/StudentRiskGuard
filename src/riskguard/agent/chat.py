@@ -45,24 +45,6 @@ from riskguard.tools import (
 )
 
 
-def _is_scenario_cancellation(message: str) -> bool:
-    normalized = message.lower()
-    return any(
-        term in normalized
-        for term in ("重新开始", "算了", "不做了", "取消这个情景", "取消情景", "退出情景")
-    )
-
-
-class ChatHTTPError(Exception):
-    """A chat error that should be returned as a real HTTP error response."""
-
-    def __init__(self, status_code: int, code: str, message: str) -> None:
-        super().__init__(message)
-        self.status_code = status_code
-        self.code = code
-        self.message = message
-
-
 class ChatOrchestrator:
     """Run bounded chat turns without allowing the LLM to choose arbitrary actions."""
 
@@ -123,10 +105,10 @@ class ChatOrchestrator:
         conversation_id = request.conversation_id or self._new_conversation_id()
         conversation = self._conversation_store.get_optional(conversation_id)
         if request.conversation_id is not None and conversation is None:
-            raise ChatHTTPError(
-                404,
-                "CONVERSATION_NOT_FOUND",
+            return self._error(
+                conversation_id,
                 "会话不存在或已过期，请重新开始。",
+                "CONVERSATION_NOT_FOUND",
             )
 
         draft = self._get_draft(conversation_id)
@@ -146,23 +128,6 @@ class ChatOrchestrator:
             has_session=conversation is not None and conversation.session_id is not None,
         )
         explicit_out_of_scope = is_out_of_scope_message(request.message)
-        if (
-            conversation is not None
-            and conversation.active_task == "scenario"
-            and _is_scenario_cancellation(request.message)
-        ):
-            self._conversation_store.update(
-                conversation_id,
-                clear_active_task=True,
-                clear_active_scenario=True,
-                current_intent="scenario_simulation",
-                last_answer_type="scenario_cancelled",
-            )
-            return AgentChatResponse(
-                conversation_id=conversation_id,
-                status="out_of_scope",
-                reply="已结束当前情景模拟。你可以重新描述一笔分期，或继续使用结构化表单。",
-            )
         if (
             not explicit_out_of_scope
             and conversation is not None
@@ -188,8 +153,6 @@ class ChatOrchestrator:
                 conversation_id,
                 current_intent=intent,
                 last_answer_type="out_of_scope",
-                clear_active_task=True,
-                clear_active_scenario=True,
             )
             return AgentChatResponse(
                 conversation_id=conversation_id,
@@ -213,8 +176,6 @@ class ChatOrchestrator:
                 previous_question=previous_question,
             )
             self._remember_intake(intake.conversation_id, intake)
-            if intake.status == "invalid":
-                raise ChatHTTPError(422, "INTAKE_INVALID", intake.reply)
             return self._from_intake(intake)
 
         if intent == "education":
@@ -422,10 +383,10 @@ class ChatOrchestrator:
                 warnings=extraction.warnings,
             )
         if extraction.status == "invalid" or scenario_id is None:
-            raise ChatHTTPError(
-                422,
-                "SCENARIO_EXTRACTION_FAILED",
+            return self._error(
+                conversation_id,
                 "无法可靠解析新增分期情景，请补充更明确的金额、期数和利率。",
+                "SCENARIO_EXTRACTION_FAILED",
             )
 
         started = time.perf_counter()
@@ -434,50 +395,44 @@ class ChatOrchestrator:
                 SIMULATE_NEW_INSTALLMENT_TOOL_NAME,
                 {"session_id": session_id, "scenario_id": scenario_id},
             )
-        except ScenarioNotFound as exc:
+        except ScenarioNotFound:
             self._clear_active_scenario(conversation_id)
-            raise ChatHTTPError(
-                404,
-                "SCENARIO_NOT_FOUND",
+            return self._error(
+                conversation_id,
                 "情景数据不存在或已经清理，请重新描述这笔新增分期。",
-            ) from exc
-        except ScenarioExpired as exc:
+                "SCENARIO_NOT_FOUND",
+            )
+        except ScenarioExpired:
             self._clear_active_scenario(conversation_id)
-            raise ChatHTTPError(
-                410,
-                "SCENARIO_EXPIRED",
+            return self._error(
+                conversation_id,
                 "情景数据已过期，请重新描述这笔新增分期。",
-            ) from exc
-        except ScenarioNotReady as exc:
-            raise ChatHTTPError(
-                409,
-                "SCENARIO_NOT_READY",
+                "SCENARIO_EXPIRED",
+            )
+        except ScenarioNotReady:
+            return self._error(
+                conversation_id,
                 "新增分期信息还没有补全，请继续补充本金、月供和期数。",
-            ) from exc
-        except ScenarioDebtLimit as exc:
+                "SCENARIO_NOT_READY",
+            )
+        except ScenarioDebtLimit:
             self._clear_active_scenario(conversation_id)
-            raise ChatHTTPError(
-                409,
-                "SCENARIO_DEBT_LIMIT",
+            return self._error(
+                conversation_id,
                 "当前会话已经有 20 笔债务，无法再加入第 21 笔情景。",
-            ) from exc
-        except ToolArgumentError as exc:
-            raise ChatHTTPError(
-                422,
-                "SCENARIO_TOOL_ARGUMENT_ERROR",
-                "情景模拟参数不合法，请重新描述这笔新增分期。",
-            ) from exc
-        except ToolNotFound as exc:
-            raise ChatHTTPError(
-                404,
-                "SCENARIO_TOOL_NOT_FOUND",
-                "情景模拟工具暂时不可用。",
-            ) from exc
+                "SCENARIO_DEBT_LIMIT",
+            )
+        except (ToolArgumentError, ToolNotFound):
+            return self._error(
+                conversation_id,
+                "情景模拟暂时不可用，请确认会话信息后重试。",
+                "SCENARIO_TOOL_FAILED",
+            )
         if not isinstance(scenario, ScenarioSimulationResult):
-            raise ChatHTTPError(
-                422,
-                "SCENARIO_RESULT_INVALID",
+            return self._error(
+                conversation_id,
                 "情景模拟返回了无法识别的结果。",
+                "SCENARIO_RESULT_INVALID",
             )
 
         latency_ms = round((time.perf_counter() - started) * 1000, 2)

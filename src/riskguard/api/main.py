@@ -12,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from riskguard import __version__
 from riskguard.agent import AgentRunner, ChatModel, DeepSeekClient
-from riskguard.agent.chat import ChatOrchestrator
+from riskguard.agent.chat import ChatHTTPError, ChatOrchestrator
 from riskguard.agent.intake import IntakeNotReady, IntakeService
 from riskguard.api.auth import create_auth_router
 from riskguard.auth import AuthService, AuthServiceError
@@ -456,8 +456,16 @@ def create_app(
         response_model=AgentChatResponse,
         tags=["agent"],
     )
-    def chat(payload: AgentChatRequest) -> AgentChatResponse:
-        return chat_orchestrator.chat(payload)
+    def chat(request: Request, payload: AgentChatRequest) -> AgentChatResponse | JSONResponse:
+        try:
+            return chat_orchestrator.chat(payload)
+        except ChatHTTPError as exc:
+            return _error_response(
+                request,
+                exc.status_code,
+                exc.code,
+                exc.message,
+            )
 
     @api.get(
         "/api/v1/education/topics",

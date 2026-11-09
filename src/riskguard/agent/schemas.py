@@ -50,6 +50,7 @@ IntentName = Literal[
     "education",
     "scenario_simulation",
     "out_of_scope",
+    "general_help",
 ]
 ChatStatus = Literal[
     "needs_more_info",

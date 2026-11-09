@@ -247,9 +247,15 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
                 total_text = (
                     f"总共还要还 {format_currency(debt.get('total_remaining_repayment'))}，"
                 )
-            derived_text = ""
-            if "remaining_periods" in (debt.get("derived_fields") or []):
-                derived_text = "（期数由系统根据总还款额和月供计算）"
+            derivation_notes: list[str] = []
+            derived_fields = debt.get("derived_fields") or []
+            if "remaining_principal" in derived_fields:
+                derivation_notes.append("欠款按购买价和未还比例估算")
+            if "remaining_periods" in derived_fields:
+                derivation_notes.append("期数由系统根据总还款额和月供计算")
+            derived_text = (
+                f"（{'；'.join(derivation_notes)}）" if derivation_notes else ""
+            )
             st.write(
                 f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
                 f"{total_text}"

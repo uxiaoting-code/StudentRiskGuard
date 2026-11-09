@@ -42,6 +42,181 @@ from riskguard.services import (
     SessionStore,
 )
 
+_CN_DIGITS = {
+    "零": 0,
+    "〇": 0,
+    "一": 1,
+    "二": 2,
+    "两": 2,
+    "俩": 2,
+    "三": 3,
+    "四": 4,
+    "五": 5,
+    "六": 6,
+    "七": 7,
+    "八": 8,
+    "九": 9,
+}
+_CN_UNITS = {"十": 10, "百": 100, "千": 1000, "万": 10000}
+_CN_NUMBER_CHARS = "".join(_CN_DIGITS) + "".join(_CN_UNITS)
+_UNKNOWN_TERMS = ("不知道", "不清楚", "没注意", "没告诉我", "忘了", "不记得")
+_NO_VALUE_TERMS = ("没有", "没有哦", "无", "零")
+
+
+def _parse_chinese_number(text: str) -> float | None:
+    cleaned = "".join(char for char in text if char in _CN_DIGITS or char in _CN_UNITS)
+    if not cleaned:
+        return None
+
+    total = 0
+    section = 0
+    number = 0
+    for char in cleaned:
+        if char in _CN_DIGITS:
+            number = _CN_DIGITS[char]
+            continue
+        unit = _CN_UNITS[char]
+        if unit == 10000:
+            section = (section + number) * unit
+            total += section
+            section = 0
+        else:
+            if number == 0:
+                number = 1
+            section += number * unit
+        number = 0
+    return float(total + section + number)
+
+
+def _parse_number_value(text: str) -> float | None:
+    cleaned = (
+        text.replace(",", "")
+        .replace("，", "")
+        .replace("￥", "")
+        .replace("¥", "")
+    )
+    unit_match = re.search(r"(\d+(?:\.\d+)?)\s*(千|万)", cleaned)
+    if unit_match:
+        multiplier = 1000 if unit_match.group(2) == "千" else 10000
+        value = float(unit_match.group(1)) * multiplier
+        return value if value > 0 else None
+
+    match = re.search(r"-?\d+(?:\.\d+)?", cleaned)
+    if match:
+        value = float(match.group(0))
+        return value if value > 0 else None
+
+    chinese_match = re.search(rf"[{_CN_NUMBER_CHARS}]+", cleaned)
+    if chinese_match:
+        value = _parse_chinese_number(chinese_match.group(0))
+        return value if value is not None and value > 0 else None
+    return None
+
+
+def _parse_standalone_number_value(text: str) -> float | None:
+    cleaned = text.strip()
+    cleaned = re.sub(r"^(大概|大约|约|差不多|是|有|为|还|欠)\s*", "", cleaned)
+    cleaned = re.sub(r"\s*(左右|上下|元|块|人民币|整)$", "", cleaned)
+    cleaned = cleaned.replace("，", "").replace(",", "").strip()
+    if not cleaned:
+        return None
+    if re.fullmatch(r"\d+(?:\.\d+)?\s*(?:千|万)?", cleaned):
+        return _parse_number_value(cleaned)
+    if re.fullmatch(rf"[{_CN_NUMBER_CHARS}]+", cleaned):
+        return _parse_number_value(cleaned)
+    return None
+
+
+def _parse_period_value(text: str) -> int | None:
+    cleaned = text.strip()
+    if "半年" in cleaned:
+        return 6
+    if "一年半" in cleaned:
+        return 18
+    if "两年" in cleaned:
+        return 24
+
+    year_match = re.search(rf"([{_CN_NUMBER_CHARS}0-9]+)\s*年", cleaned)
+    if year_match:
+        years = _parse_number_value(year_match.group(1))
+        if years is not None:
+            return int(round(years * 12))
+
+    month_match = re.search(
+        rf"([{_CN_NUMBER_CHARS}0-9]+)\s*(?:个月|月|期)",
+        cleaned,
+    )
+    if month_match:
+        months = _parse_number_value(month_match.group(1))
+        if months is not None:
+            return int(round(months))
+
+    if re.fullmatch(r"\s*\d+\s*", cleaned):
+        return int(cleaned.strip())
+    return None
+
+
+def _parse_apr_value(text: str) -> float | None:
+    cleaned = text.strip()
+    if "百分之" in cleaned:
+        tail = cleaned.split("百分之", 1)[1]
+        value = _parse_number_value(tail)
+        return round(value / 100, 8) if value is not None else None
+    if "%" in cleaned or "％" in cleaned:
+        value = _parse_number_value(cleaned)
+        return round(value / 100, 8) if value is not None else None
+    value = _parse_number_value(cleaned)
+    if value is None:
+        return None
+    if value <= 1:
+        return value
+    if value <= 100:
+        return round(value / 100, 8)
+    return None
+
+
+def _parse_labeled_apr(text: str) -> float | None:
+    match = re.search(
+        rf"(?:利率|年化)[^0-9{_CN_NUMBER_CHARS}]{{0,8}}"
+        rf"([0-9]+(?:\.[0-9]+)?\s*[%％]?|[{_CN_NUMBER_CHARS}]+)",
+        text,
+    )
+    if not match:
+        return None
+    return _parse_apr_value(match.group(1))
+
+def _parse_remaining_ratio(text: str) -> float | None:
+    cleaned = text.strip()
+    if "一半" in cleaned or re.search(r"剩\s*半", cleaned):
+        return 0.5
+    if any(term in cleaned for term in ("还剩", "未还", "剩余比例", "欠款比例")):
+        if "百分之" in cleaned or "%" in cleaned or "％" in cleaned:
+            return _parse_apr_value(cleaned)
+    return None
+
+
+def _extract_original_amount(text: str) -> float | None:
+    match = re.search(
+        rf"(?:买(?:的时候)?|总价|原价|价格|花了|一共)[^0-9{_CN_NUMBER_CHARS}]{{0,6}}"
+        rf"([0-9][0-9,]*(?:\.[0-9]+)?|[{_CN_NUMBER_CHARS}]+)",
+        text,
+    )
+    if not match:
+        return None
+    return _parse_number_value(match.group(1))
+
+
+def _extract_labeled_money(text: str, labels: tuple[str, ...]) -> float | None:
+    label_pattern = "|".join(re.escape(label) for label in labels)
+    match = re.search(
+        rf"(?:{label_pattern})[^0-9{_CN_NUMBER_CHARS}]{{0,8}}"
+        rf"([0-9][0-9,]*(?:\.[0-9]+)?|[{_CN_NUMBER_CHARS}]+)",
+        text,
+    )
+    if not match:
+        return None
+    return _parse_number_value(match.group(1))
+
 
 class IntakeNotReady(Exception):
     """Raised when confirmation is attempted before required fields exist."""
@@ -110,20 +285,32 @@ class IntakeService:
                 warnings=["MAX_CLARIFICATION_TURNS_REACHED"],
             )
 
-        try:
-            extraction = self._extract(
-                user_message=payload.message,
-                existing_draft=existing.draft if existing is not None else None,
-                previous_question=previous_question
-                or (existing.pending_question if existing is not None else None),
-            )
-        except Exception:
-            # Do not expose model internals or raw user text in the response.
+        deterministic_draft = (
+            self._apply_pending_answer(existing, payload.message)
+            if existing is not None
+            else None
+        )
+        if deterministic_draft is not None:
             extraction = ExtractionResult(
-                status="invalid",
-                draft=None,
-                warnings=["本次自然语言解析暂时不可用，请重新描述或改用结构化表单。"],
+                status="needs_more_info",
+                draft=deterministic_draft,
+                warnings=["DETERMINISTIC_FIELD_FILLED"],
             )
+        else:
+            try:
+                extraction = self._extract(
+                    user_message=payload.message,
+                    existing_draft=existing.draft if existing is not None else None,
+                    previous_question=previous_question
+                    or (existing.pending_question if existing is not None else None),
+                )
+            except Exception:
+                # Do not expose model internals or raw user text in the response.
+                extraction = ExtractionResult(
+                    status="invalid",
+                    draft=None,
+                    warnings=["本次自然语言解析暂时不可用，请重新描述或改用结构化表单。"],
+                )
 
         if extraction.status == "invalid":
             state = self._save_state(
@@ -169,19 +356,39 @@ class IntakeService:
                 warnings=["EXTRACTION_EMPTY"],
             )
 
+        merged_draft = self._merge_drafts(
+            existing.draft if existing is not None else AssessmentDraft(),
+            extraction.draft,
+        )
+        merged_draft = self._apply_debt_kind_signal(merged_draft, payload.message)
+        merged_draft = self._apply_message_signals(merged_draft, payload.message)
         merged_draft = self._mark_unknown_apr(
-            self._normalize_draft(
-                self._apply_debt_kind_signal(
-                    self._merge_drafts(
-                        existing.draft if existing is not None else AssessmentDraft(),
-                        extraction.draft,
-                    ),
-                    payload.message,
-                )
-            ),
+            self._normalize_draft(merged_draft),
             payload.message,
+            target_debt_index=(
+                existing.current_debt_index if existing is not None else None
+            ),
         )
         missing_fields = self._collect_missing_fields(merged_draft)
+        draft_changed = (
+            existing is not None
+            and merged_draft.model_dump(mode="json")
+            != existing.draft.model_dump(mode="json")
+        )
+        no_progress_turns = (
+            existing.no_progress_turns + 1
+            if existing is not None and not draft_changed
+            else 0
+        )
+        response_warnings = list(extraction.warnings)
+        if any(
+            "remaining_principal" in debt.derived_fields
+            and debt.original_amount is not None
+            and debt.remaining_ratio is not None
+            for debt in (merged_draft.debts or [])
+        ):
+            if "REMAINING_PRINCIPAL_ESTIMATED" not in response_warnings:
+                response_warnings.append("REMAINING_PRINCIPAL_ESTIMATED")
 
         if self._has_invalid_total_income(merged_draft):
             state = self._save_state(
@@ -207,6 +414,14 @@ class IntakeService:
 
         if missing_fields:
             question = self._build_question(missing_fields, merged_draft)
+            if existing is not None and not draft_changed:
+                question = self._build_no_progress_question(
+                    missing_fields,
+                    merged_draft,
+                    no_progress_turns,
+                )
+                if "NO_PROGRESS_DETECTED" not in response_warnings:
+                    response_warnings.append("NO_PROGRESS_DETECTED")
             context_index, context_label = self._question_context(
                 missing_fields[0],
                 merged_draft,
@@ -221,6 +436,8 @@ class IntakeService:
                 missing_fields=missing_fields,
                 pending_question=question,
                 turn=next_turns,
+                pending_field=missing_fields[0],
+                no_progress_turns=no_progress_turns,
                 current_debt_index=context_index,
                 current_debt_label=context_label,
             )
@@ -235,7 +452,7 @@ class IntakeService:
                     0, self._max_clarification_turns - next_turns
                 ),
                 preview=self._preview(merged_draft),
-                warnings=extraction.warnings,
+                warnings=response_warnings,
             )
 
         state = self._save_state(
@@ -245,6 +462,8 @@ class IntakeService:
             missing_fields=[],
             pending_question=None,
             turn=used_turns,
+            pending_field=None,
+            no_progress_turns=0,
         )
         return IntakeResponse(
             conversation_id=state.conversation_id,
@@ -257,8 +476,9 @@ class IntakeService:
                 0, self._max_clarification_turns - used_turns
             ),
             preview=self._preview(merged_draft),
-            warnings=extraction.warnings,
+            warnings=response_warnings,
         )
+
     def confirm(
         self,
         conversation_id: str,
@@ -336,6 +556,257 @@ class IntakeService:
                 clear_active_scenario=True,
             )
 
+    @classmethod
+    def _apply_pending_answer(
+        cls,
+        existing: DraftState,
+        user_message: str,
+    ) -> AssessmentDraft | None:
+        field = existing.pending_field or (
+            existing.missing_fields[0] if existing.missing_fields else None
+        )
+        if field is None:
+            return None
+
+        message = user_message.strip()
+        normalized = message.lower()
+        draft = existing.draft
+
+        debt_match = re.match(r"debts\[(\d+)\]\.(\w+)", field)
+        if debt_match:
+            if any(term in normalized for term in ("生活费", "兼职", "工资", "收入", "奖学金")):
+                return None
+            index = int(debt_match.group(1))
+            field_name = debt_match.group(2)
+            debts = list(draft.debts or [])
+            if index >= len(debts):
+                return None
+            debt = debts[index]
+            updates: dict[str, Any] = {}
+
+            monthly = _extract_labeled_money(
+                normalized,
+                ("每月还", "每个月还", "每月", "每个月", "月供"),
+            )
+            if monthly is not None:
+                updates["monthly_payment"] = monthly
+
+            total = _extract_labeled_money(
+                normalized,
+                ("总共还要还", "总共还", "总还款", "一共还"),
+            )
+            if total is not None:
+                updates["total_remaining_repayment"] = total
+
+            principal = _extract_labeled_money(
+                normalized,
+                ("剩余本金", "本金", "现在还欠", "还欠", "欠了"),
+            )
+            if principal is not None:
+                updates["remaining_principal"] = principal
+
+            explicit_period_answer = bool(
+                re.search(
+                    rf"(还剩|还要还|剩余).{{0,8}}"
+                    rf"([{_CN_NUMBER_CHARS}0-9]+\s*(期|个月|月|年)|半年|一年半)",
+                    normalized,
+                )
+            ) or (field_name == "remaining_periods")
+            if explicit_period_answer:
+                periods = _parse_period_value(normalized)
+                if periods is not None and periods >= 1:
+                    updates["remaining_periods"] = periods
+
+            if "利率" in normalized or "年化" in normalized:
+                if any(term in normalized for term in _UNKNOWN_TERMS):
+                    updates["nominal_apr"] = None
+                    updates["nominal_apr_status"] = "unknown"
+                else:
+                    apr = _parse_labeled_apr(normalized) or (
+                        _parse_apr_value(normalized)
+                        if re.fullmatch(r"\s*[0-9.]+%?\s*", normalized)
+                        else None
+                    )
+                    if apr is not None:
+                        updates["nominal_apr"] = apr
+                        updates["nominal_apr_status"] = "provided"
+
+            if field_name == "kind":
+                if any(term in normalized for term in ("自动续费", "订阅", "连续包月", "月费")):
+                    updates["kind"] = "subscription"
+                elif any(term in normalized for term in ("一次性", "普通分期", "分期")):
+                    updates["kind"] = "installment"
+
+            if field_name == "label" and message and len(message) <= 30:
+                updates["label"] = message
+
+            if not updates:
+                if field_name == "remaining_periods":
+                    periods = _parse_period_value(normalized)
+                    if periods is not None and periods >= 1:
+                        updates["remaining_periods"] = periods
+                elif field_name == "nominal_apr":
+                    if any(term in normalized for term in _UNKNOWN_TERMS):
+                        updates["nominal_apr"] = None
+                        updates["nominal_apr_status"] = "unknown"
+                    else:
+                        apr = _parse_labeled_apr(normalized) or (
+                            _parse_apr_value(normalized)
+                            if re.fullmatch(r"\s*[0-9.]+%?\s*", normalized)
+                            else None
+                        )
+                        if apr is not None:
+                            updates["nominal_apr"] = apr
+                            updates["nominal_apr_status"] = "provided"
+                elif field_name in {
+                    "remaining_principal",
+                    "total_remaining_repayment",
+                    "final_payment",
+                    "monthly_payment",
+                }:
+                    if not any(term in normalized for term in ("利率", "期", "月", "年")):
+                        amount = _parse_standalone_number_value(normalized)
+                        if amount is not None:
+                            updates[field_name] = amount
+                elif field_name == "monthly_cost":
+                    amount = _parse_standalone_number_value(normalized)
+                    if amount is not None:
+                        updates["monthly_cost"] = amount
+
+            if not updates:
+                return None
+            debts[index] = debt.model_copy(update=updates)
+            return draft.model_copy(update={"debts": debts})
+
+        subscription_match = re.match(
+            r"recurring_subscriptions\[(\d+)\]\.(\w+)",
+            field,
+        )
+        if subscription_match:
+            index = int(subscription_match.group(1))
+            field_name = subscription_match.group(2)
+            subscriptions = list(draft.recurring_subscriptions or [])
+            if index >= len(subscriptions):
+                return None
+            item = subscriptions[index]
+            updates: dict[str, Any] = {}
+            if field_name == "label" and message and len(message) <= 50:
+                updates["label"] = message
+            elif field_name == "monthly_cost":
+                amount = _parse_standalone_number_value(normalized)
+                if amount is not None:
+                    updates["monthly_cost"] = amount
+            if not updates:
+                return None
+            subscriptions[index] = item.model_copy(update=updates)
+            return draft.model_copy(update={"recurring_subscriptions": subscriptions})
+
+        if field == "debts":
+            if any(term in normalized for term in ("没有", "没有负债", "没有分期", "还完", "结清")):
+                return draft.model_copy(update={"debts": [], "no_debts": True})
+            return None
+
+        if field in {
+            "income.monthly_disposable_allowance",
+            "income.monthly_part_time_income",
+        }:
+            if any(
+                term in normalized
+                for term in ("本金", "月供", "分期", "还剩", "总还", "利率", "期数", "会员", "订阅")
+            ):
+                return None
+            income = draft.income or IncomeDraft()
+            if field.endswith("monthly_part_time_income") and any(
+                term in normalized for term in _NO_VALUE_TERMS
+            ):
+                value = 0.0
+            else:
+                value = _parse_standalone_number_value(normalized)
+            if value is None:
+                return None
+            updates = {field.rsplit(".", 1)[-1]: value}
+            return draft.model_copy(
+                update={"income": income.model_copy(update=updates)}
+            )
+
+        return None
+
+    @classmethod
+    def _apply_message_signals(
+        cls,
+        draft: AssessmentDraft,
+        user_message: str,
+    ) -> AssessmentDraft:
+        debts = list(draft.debts or [])
+        active_indices = [
+            index
+            for index, debt in enumerate(debts)
+            if debt.settled is not True and debt.remaining_periods != 0
+        ]
+        if len(active_indices) != 1:
+            return draft
+
+        index = active_indices[0]
+        debt = debts[index]
+        if debt.kind == "subscription":
+            return draft
+
+        message = user_message.strip()
+        updates: dict[str, Any] = {}
+        original_amount = _extract_original_amount(message)
+        remaining_ratio = _parse_remaining_ratio(message)
+        derived_fields = list(debt.derived_fields)
+
+        if original_amount is not None:
+            updates["original_amount"] = original_amount
+        if remaining_ratio is not None:
+            updates["remaining_ratio"] = remaining_ratio
+
+        effective_original = original_amount or debt.original_amount
+        effective_ratio = remaining_ratio or debt.remaining_ratio
+        if effective_original is not None and effective_ratio is not None:
+            estimated = round(effective_original * effective_ratio, 2)
+            if (
+                debt.remaining_principal is None
+                or abs(debt.remaining_principal - effective_original) < 1e-9
+            ):
+                updates["remaining_principal"] = estimated
+                if "remaining_principal" not in derived_fields:
+                    derived_fields.append("remaining_principal")
+
+        principal = _extract_labeled_money(
+            message,
+            ("剩余本金", "本金", "现在还欠", "还欠", "欠了"),
+        )
+        if principal is not None:
+            updates["remaining_principal"] = principal
+            if "remaining_principal" in derived_fields:
+                derived_fields.remove("remaining_principal")
+
+        total = _extract_labeled_money(
+            message,
+            ("总共还要还", "总共还", "总还款", "一共还"),
+        )
+        if total is not None:
+            updates["total_remaining_repayment"] = total
+
+        monthly = _extract_labeled_money(
+            message,
+            ("每月还款", "每个月还款", "每月还", "每个月还", "月供"),
+        )
+        if monthly is not None:
+            updates["monthly_payment"] = monthly
+
+        if any(term in message for term in ("还剩", "还要还", "剩余", "一年", "半年")):
+            periods = _parse_period_value(message)
+            if periods is not None and periods >= 1:
+                updates["remaining_periods"] = periods
+
+        if not updates:
+            return draft
+        updates["derived_fields"] = derived_fields
+        debts[index] = debt.model_copy(update=updates)
+        return draft.model_copy(update={"debts": debts})
     def _extract(
         self,
         *,
@@ -379,17 +850,38 @@ class IntakeService:
         missing_fields: list[str],
         pending_question: str | None,
         turn: int,
+        pending_field: str | None = None,
+        no_progress_turns: int | None = None,
         current_debt_index: int | None = None,
         current_debt_label: str | None = None,
     ) -> DraftState:
+        resolved_pending_field = (
+            pending_field
+            or (missing_fields[0] if missing_fields else None)
+        )
+        resolved_index = current_debt_index
+        resolved_label = current_debt_label
+        if resolved_pending_field is not None and resolved_index is None:
+            resolved_index, resolved_label = self._question_context(
+                resolved_pending_field,
+                draft,
+            )
+        resolved_progress = (
+            no_progress_turns
+            if no_progress_turns is not None
+            else (existing.no_progress_turns if existing is not None else 0)
+        )
+
         if existing is None:
             return self._draft_store.create(
                 conversation_id=conversation_id,
                 draft=draft,
                 missing_fields=missing_fields,
                 pending_question=pending_question,
-                current_debt_index=current_debt_index,
-                current_debt_label=current_debt_label,
+                pending_field=resolved_pending_field,
+                no_progress_turns=resolved_progress,
+                current_debt_index=resolved_index,
+                current_debt_label=resolved_label,
                 clarification_turns=turn,
             )
         updated = existing.model_copy(
@@ -397,9 +889,11 @@ class IntakeService:
                 "draft": draft,
                 "missing_fields": missing_fields,
                 "pending_question": pending_question,
+                "pending_field": resolved_pending_field,
+                "no_progress_turns": resolved_progress,
                 "clarification_turns": turn,
-                "current_debt_index": current_debt_index,
-                "current_debt_label": current_debt_label,
+                "current_debt_index": resolved_index,
+                "current_debt_label": resolved_label,
                 "confirmed": False,
             }
         )
@@ -538,10 +1032,21 @@ class IntakeService:
     @classmethod
     def _derive_debt_fields(cls, debt: DebtDraft) -> DebtDraft:
         derivations = list(debt.derived_fields)
+        principal = debt.remaining_principal
         total = debt.total_remaining_repayment
         monthly = debt.monthly_payment
         periods = debt.remaining_periods
         final_payment = debt.final_payment
+        original_amount = debt.original_amount
+        remaining_ratio = debt.remaining_ratio
+        if (
+            principal is None
+            and original_amount is not None
+            and remaining_ratio is not None
+        ):
+            principal = round(original_amount * remaining_ratio, 2)
+            if "remaining_principal" not in derivations:
+                derivations.append("remaining_principal")
         if periods is None and total is not None and monthly is not None:
             ratio = total / monthly
             rounded = round(ratio)
@@ -558,6 +1063,7 @@ class IntakeService:
                         derivations.append("remaining_periods")
         return debt.model_copy(
             update={
+                "remaining_principal": principal,
                 "remaining_periods": periods,
                 "derived_fields": derivations,
             }
@@ -678,12 +1184,13 @@ class IntakeService:
             if draft.income.monthly_part_time_income is None:
                 missing.append("income.monthly_part_time_income")
 
-        active_debts = cls._active_debts(draft)
         if draft.no_debts is not True:
             if draft.debts is None or (not draft.debts and draft.no_debts is not True):
                 missing.append("debts")
             else:
-                for index, debt in enumerate(active_debts):
+                for index, debt in enumerate(draft.debts):
+                    if debt.settled is True or debt.remaining_periods == 0:
+                        continue
                     if debt.kind == "unknown":
                         missing.append(f"debts[{index}].kind")
                     if debt.remaining_principal is None:
@@ -738,10 +1245,12 @@ class IntakeService:
     ) -> tuple[int | None, str | None]:
         match = re.match(r"debts\[(\d+)\]", field)
         if match:
-            active = IntakeService._active_debts(draft)
+            debts = draft.debts or []
             index = int(match.group(1))
-            if 0 <= index < len(active):
-                debt = active[index]
+            if 0 <= index < len(debts):
+                debt = debts[index]
+                if debt.settled is True or debt.remaining_periods == 0:
+                    return None, None
                 label = debt.label or f"第{index + 1}笔分期"
                 return index, label
         match = re.match(r"recurring_subscriptions\[(\d+)\]", field)
@@ -770,7 +1279,7 @@ class IntakeService:
         elif field == "debts":
             question = "你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。"
         elif tail == "remaining_principal":
-            question = f"{subject}现在还欠的本金大概是多少？"
+            question = f"{subject}现在还欠多少钱？这里填剩余欠款，不是每个月要还的钱。"
         elif tail == "total_remaining_repayment":
             question = f"{subject}总共还要还多少钱？"
         elif tail == "final_payment":
@@ -778,7 +1287,7 @@ class IntakeService:
         elif tail == "monthly_payment":
             question = f"{subject}每个月大概还多少？"
         elif tail == "remaining_periods":
-            question = f"{subject}还要还几个月？"
+            question = f"{subject}大概还要还多少期或几个月？"
         elif tail == "nominal_apr":
             question = f"{subject}当时约定的利率大概是多少？不清楚也可以直接说不知道。"
         elif tail == "kind":
@@ -792,27 +1301,80 @@ class IntakeService:
         else:
             question = "请再补充一下这笔账单的还款情况。"
         return "还差一点信息：" + question
+
+    @staticmethod
+    def _build_no_progress_question(
+        missing_fields: list[str],
+        draft: AssessmentDraft,
+        no_progress_turns: int,
+    ) -> str:
+        field = missing_fields[0]
+        tail = field.rsplit(".", 1)[-1]
+        context_index, context_label = IntakeService._question_context(field, draft)
+        if context_index is not None and context_label:
+            subject = f"{context_label}这笔分期"
+        elif context_label:
+            subject = context_label
+        else:
+            subject = "这笔账单"
+
+        if tail == "remaining_principal":
+            question = (
+                "我收到了你的补充，但还没能确定金额。"
+                f"{subject}现在是还剩多少欠款？可以直接输入“还欠3000元”。"
+            )
+        elif tail == "total_remaining_repayment":
+            question = (
+                "我收到了你的补充，但还没分清金额含义。"
+                f"{subject}总共还要还多少钱？不是现在剩余欠款。"
+            )
+        elif tail == "monthly_payment":
+            question = f"我还需要确认一下，{subject}每个月实际要还多少？"
+        elif tail == "remaining_periods":
+            question = f"我还需要确认一下，{subject}还要还多少期或几个月？"
+        elif tail == "nominal_apr":
+            question = (
+                f"{subject}的利率还不清楚。你可以填类似“12%”，"
+                "或者直接说“不知道”。"
+            )
+        else:
+            question = "这轮补充还没有写入草稿，请换一种更明确的说法。"
+
+        if no_progress_turns >= 2:
+            question += " 也可以改用结构化表单继续，已经填过的信息不会丢失。"
+        return "还差一点信息：" + question
+
     @staticmethod
     def _mark_unknown_apr(
         draft: AssessmentDraft,
         user_message: str,
+        *,
+        target_debt_index: int | None = None,
     ) -> AssessmentDraft:
         normalized = user_message.lower()
-        unknown_terms = ("不知道", "不清楚", "没注意", "没告诉我", "忘了")
         mentions_apr = "利率" in normalized or "年化" in normalized
-        if not (mentions_apr and any(term in normalized for term in unknown_terms)):
+        if not (
+            mentions_apr
+            and any(term in normalized for term in _UNKNOWN_TERMS)
+        ):
             return draft
-        debts = [
-            debt.model_copy(
+
+        debts = list(draft.debts or [])
+        if target_debt_index is not None:
+            if 0 <= target_debt_index < len(debts) and debts[target_debt_index].nominal_apr is None:
+                debts[target_debt_index] = debts[target_debt_index].model_copy(
+                    update={
+                        "nominal_apr": None,
+                        "nominal_apr_status": "unknown",
+                    }
+                )
+        elif len(debts) == 1 and debts[0].nominal_apr is None:
+            debts[0] = debts[0].model_copy(
                 update={
                     "nominal_apr": None,
                     "nominal_apr_status": "unknown",
                 }
             )
-            if debt.nominal_apr is None
-            else debt
-            for debt in (draft.debts or [])
-        ]
         return draft.model_copy(update={"debts": debts})
 
     @staticmethod

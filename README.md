@@ -225,6 +225,14 @@ http://127.0.0.1:8000
 
 认证使用 SQLite，只保存用户名、密码哈希和认证会话，不保存收入、债务、订阅、评估结果或原始聊天文本。Token 只保存在 Streamlit `session_state`，不写入 localStorage。
 
+注册规则：
+
+- 用户名长度为 3～32 位，只能包含英文字母、数字和下划线；
+- 用户名不区分大小写且不能重复；
+- 密码长度为 8～128 位，注册时两次输入必须一致；
+- 当前不收集邮箱、手机号、真实姓名、学校或学号，也不支持邮箱找回密码；
+- 页面会在提交前显示中文校验提示，后端仍执行最终校验。
+
 ```powershell
 $env:AUTH_DB_PATH="E:\code_project\RiskAgent\data\auth.db"
 $env:AUTH_TOKEN_TTL_MINUTES="1440"

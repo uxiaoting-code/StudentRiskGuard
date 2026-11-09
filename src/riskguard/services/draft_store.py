@@ -79,6 +79,8 @@ class DraftStore:
         draft: AssessmentDraft,
         missing_fields: list[str],
         pending_question: str | None,
+        current_debt_index: int | None = None,
+        current_debt_label: str | None = None,
         clarification_turns: int = 0,
     ) -> DraftState:
         now = self._now()
@@ -93,6 +95,8 @@ class DraftStore:
                 draft=draft,
                 missing_fields=missing_fields,
                 pending_question=pending_question,
+                current_debt_index=current_debt_index,
+                current_debt_label=current_debt_label,
                 clarification_turns=clarification_turns,
                 confirmed=False,
                 created_at=now,

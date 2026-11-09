@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_intake.schema.json",
-  "title": "M5.6 Natural Language Intake Contracts",
+  "title": "M5.7.1 Natural Language Intake Contracts",
   "$defs": {
     "AssessmentDraft": {
       "additionalProperties": false,
@@ -322,6 +322,34 @@
           "default": null,
           "title": "Remaining Principal"
         },
+        "total_remaining_repayment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 1000000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Total Remaining Repayment"
+        },
+        "final_payment": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "maximum": 100000,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Final Payment"
+        },
         "monthly_payment": {
           "anyOf": [
             {
@@ -381,6 +409,30 @@
           "default": null,
           "title": "Nominal Apr Status"
         },
+        "derived_fields": {
+          "items": {
+            "type": "string"
+          },
+          "title": "Derived Fields",
+          "type": "array"
+        },
+        "kind": {
+          "anyOf": [
+            {
+              "enum": [
+                "unknown",
+                "installment",
+                "subscription"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Kind"
+        },
         "settled": {
           "anyOf": [
             {
@@ -429,6 +481,32 @@
           ],
           "default": null,
           "title": "Pending Question"
+        },
+        "current_debt_index": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Debt Index"
+        },
+        "current_debt_label": {
+          "anyOf": [
+            {
+              "maxLength": 30,
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Current Debt Label"
         },
         "clarification_turns": {
           "default": 0,

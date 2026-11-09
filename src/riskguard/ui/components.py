@@ -217,10 +217,19 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
                 if nominal_apr is None
                 else f"名义利率 {format_rate(nominal_apr)}"
             )
+            total_text = ""
+            if debt.get("total_remaining_repayment") is not None:
+                total_text = (
+                    f"总共还要还 {format_currency(debt.get('total_remaining_repayment'))}，"
+                )
+            derived_text = ""
+            if "remaining_periods" in (debt.get("derived_fields") or []):
+                derived_text = "（期数由系统根据总还款额和月供计算）"
             st.write(
                 f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
+                f"{total_text}"
                 f"每月约还 {format_currency(debt.get('monthly_payment'))}，"
-                f"还要还 {debt.get('remaining_periods', '—')} 个月；"
+                f"还要还 {debt.get('remaining_periods', '—')} 个月{derived_text}；"
                 f"{rate_text}。"
             )
 

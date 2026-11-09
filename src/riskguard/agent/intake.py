@@ -171,9 +171,12 @@ class IntakeService:
 
         merged_draft = self._mark_unknown_apr(
             self._normalize_draft(
-                self._merge_drafts(
-                    existing.draft if existing is not None else AssessmentDraft(),
-                    extraction.draft,
+                self._apply_debt_kind_signal(
+                    self._merge_drafts(
+                        existing.draft if existing is not None else AssessmentDraft(),
+                        extraction.draft,
+                    ),
+                    payload.message,
                 )
             ),
             payload.message,
@@ -203,7 +206,11 @@ class IntakeService:
             )
 
         if missing_fields:
-            question = self._build_question(missing_fields)
+            question = self._build_question(missing_fields, merged_draft)
+            context_index, context_label = self._question_context(
+                missing_fields[0],
+                merged_draft,
+            )
             # Only a follow-up turn that still asks for more information consumes
             # one clarification round. The initial message never consumes one.
             next_turns = used_turns + 1 if existing is not None else 0
@@ -214,6 +221,8 @@ class IntakeService:
                 missing_fields=missing_fields,
                 pending_question=question,
                 turn=next_turns,
+                current_debt_index=context_index,
+                current_debt_label=context_label,
             )
             return IntakeResponse(
                 conversation_id=state.conversation_id,
@@ -370,6 +379,8 @@ class IntakeService:
         missing_fields: list[str],
         pending_question: str | None,
         turn: int,
+        current_debt_index: int | None = None,
+        current_debt_label: str | None = None,
     ) -> DraftState:
         if existing is None:
             return self._draft_store.create(
@@ -377,6 +388,8 @@ class IntakeService:
                 draft=draft,
                 missing_fields=missing_fields,
                 pending_question=pending_question,
+                current_debt_index=current_debt_index,
+                current_debt_label=current_debt_label,
                 clarification_turns=turn,
             )
         updated = existing.model_copy(
@@ -385,6 +398,8 @@ class IntakeService:
                 "missing_fields": missing_fields,
                 "pending_question": pending_question,
                 "clarification_turns": turn,
+                "current_debt_index": current_debt_index,
+                "current_debt_label": current_debt_label,
                 "confirmed": False,
             }
         )
@@ -428,16 +443,55 @@ class IntakeService:
         )
 
     @staticmethod
+    def _is_ambiguous_subscription_label(debt: DebtDraft) -> bool:
+        if debt.label is None:
+            return False
+        label = debt.label
+        has_subscription_word = any(
+            term in label for term in ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
+        )
+        return has_subscription_word and "分期" in label
+
+    @classmethod
+    def _apply_debt_kind_signal(
+        cls,
+        draft: AssessmentDraft,
+        user_message: str,
+    ) -> AssessmentDraft:
+        normalized = user_message.lower()
+        if any(term in normalized for term in ("自动续费", "订阅", "每月扣", "连续包月", "月费")):
+            kind = "subscription"
+        elif any(term in normalized for term in ("一次性", "不是订阅", "普通分期")):
+            kind = "installment"
+        else:
+            return draft
+        debts = [
+            debt.model_copy(update={"kind": kind})
+            if cls._is_ambiguous_subscription_label(debt) or debt.kind == "unknown"
+            else debt
+            for debt in (draft.debts or [])
+        ]
+        return draft.model_copy(update={"debts": debts})
+
+    @staticmethod
     def _subscription_like(debt: DebtDraft) -> bool:
         if debt.label is None:
+            return False
+        if debt.kind == "installment":
             return False
         label = debt.label
         terms = ("会员", "订阅", "自动续费", "连续包月", "包月", "月费")
         has_subscription_label = any(term in label for term in terms)
-        # Recurring services do not have a principal. Do not let a stray period
-        # value from extraction push a subscription back into the debt list.
+        # Recurring services do not have a principal. A label containing
+        # "分期" is ambiguous and must be clarified, not silently moved.
         has_no_principal = debt.remaining_principal is None
-        return has_subscription_label and has_no_principal
+        if debt.kind == "subscription":
+            return has_subscription_label and has_no_principal
+        return (
+            has_subscription_label
+            and has_no_principal
+            and "分期" not in label
+        )
 
     @classmethod
     def _normalize_draft(cls, draft: AssessmentDraft) -> AssessmentDraft:
@@ -457,6 +511,9 @@ class IntakeService:
                         ],
                     ) or []
                     continue
+                if cls._is_ambiguous_subscription_label(debt) and debt.kind is None:
+                    debt = debt.model_copy(update={"kind": "unknown"})
+                debt = cls._derive_debt_fields(debt)
                 settled = debt.settled is True or debt.remaining_periods == 0
                 apr_status = debt.nominal_apr_status
                 if debt.nominal_apr is not None:
@@ -475,6 +532,34 @@ class IntakeService:
             update={
                 "debts": debts,
                 "recurring_subscriptions": subscriptions if subscriptions else draft.recurring_subscriptions,
+            }
+        )
+
+    @classmethod
+    def _derive_debt_fields(cls, debt: DebtDraft) -> DebtDraft:
+        derivations = list(debt.derived_fields)
+        total = debt.total_remaining_repayment
+        monthly = debt.monthly_payment
+        periods = debt.remaining_periods
+        final_payment = debt.final_payment
+        if periods is None and total is not None and monthly is not None:
+            ratio = total / monthly
+            rounded = round(ratio)
+            if abs(ratio - rounded) < 1e-9 and rounded >= 1:
+                periods = int(rounded)
+                if "remaining_periods" not in derivations:
+                    derivations.append("remaining_periods")
+            elif final_payment is not None and total > monthly:
+                full_payments = int(total // monthly)
+                remainder = round(total - full_payments * monthly, 6)
+                if abs(remainder - final_payment) < 1e-9:
+                    periods = full_payments + 1
+                    if "remaining_periods" not in derivations:
+                        derivations.append("remaining_periods")
+        return debt.model_copy(
+            update={
+                "remaining_periods": periods,
+                "derived_fields": derivations,
             }
         )
 
@@ -599,13 +684,24 @@ class IntakeService:
                 missing.append("debts")
             else:
                 for index, debt in enumerate(active_debts):
-                    for field in (
-                        "remaining_principal",
-                        "monthly_payment",
-                        "remaining_periods",
-                    ):
-                        if getattr(debt, field) is None:
-                            missing.append(f"debts[{index}].{field}")
+                    if debt.kind == "unknown":
+                        missing.append(f"debts[{index}].kind")
+                    if debt.remaining_principal is None:
+                        missing.append(f"debts[{index}].remaining_principal")
+                    if debt.monthly_payment is None:
+                        missing.append(f"debts[{index}].monthly_payment")
+                    if debt.remaining_periods is None:
+                        total = debt.total_remaining_repayment
+                        monthly = debt.monthly_payment
+                        if (
+                            total is not None
+                            and monthly is not None
+                            and debt.final_payment is None
+                            and abs((total / monthly) - round(total / monthly)) > 1e-9
+                        ):
+                            missing.append(f"debts[{index}].final_payment")
+                        else:
+                            missing.append(f"debts[{index}].remaining_periods")
                     if (
                         debt.nominal_apr is None
                         and debt.nominal_apr_status != "unknown"
@@ -636,9 +732,37 @@ class IntakeService:
         )
 
     @staticmethod
-    def _build_question(missing_fields: list[str]) -> str:
+    def _question_context(
+        field: str,
+        draft: AssessmentDraft,
+    ) -> tuple[int | None, str | None]:
+        match = re.match(r"debts\[(\d+)\]", field)
+        if match:
+            active = IntakeService._active_debts(draft)
+            index = int(match.group(1))
+            if 0 <= index < len(active):
+                debt = active[index]
+                label = debt.label or f"第{index + 1}笔分期"
+                return index, label
+        match = re.match(r"recurring_subscriptions\[(\d+)\]", field)
+        if match:
+            index = int(match.group(1))
+            subscriptions = draft.recurring_subscriptions or []
+            if 0 <= index < len(subscriptions):
+                return None, subscriptions[index].label or f"第{index + 1}个订阅"
+        return None, None
+
+    @staticmethod
+    def _build_question(missing_fields: list[str], draft: AssessmentDraft) -> str:
         field = missing_fields[0]
         tail = field.rsplit(".", 1)[-1]
+        context_index, context_label = IntakeService._question_context(field, draft)
+        if context_index is not None and context_label:
+            subject = f"{context_label}这笔分期"
+        elif context_label:
+            subject = context_label
+        else:
+            subject = "这笔账单"
         if field.startswith("income.monthly_disposable_allowance"):
             question = "你每个月大概有多少生活费？"
         elif field.startswith("income.monthly_part_time_income"):
@@ -646,17 +770,23 @@ class IntakeService:
         elif field == "debts":
             question = "你现在还有正在还款的分期吗？如果已经还完，可以直接说已经还完。"
         elif tail == "remaining_principal":
-            question = "这笔分期现在大概还欠多少钱？"
+            question = f"{subject}现在还欠的本金大概是多少？"
+        elif tail == "total_remaining_repayment":
+            question = f"{subject}总共还要还多少钱？"
+        elif tail == "final_payment":
+            question = f"{subject}最后一期大概还要还多少？"
         elif tail == "monthly_payment":
-            question = "这笔分期每个月大概还多少？"
+            question = f"{subject}每个月大概还多少？"
         elif tail == "remaining_periods":
-            question = "这笔分期还要还几个月？"
+            question = f"{subject}还要还几个月？"
         elif tail == "nominal_apr":
-            question = "这笔分期当时约定的利率大概是多少？不清楚也可以直接说不知道。"
+            question = f"{subject}当时约定的利率大概是多少？不清楚也可以直接说不知道。"
+        elif tail == "kind":
+            question = f"{subject}是一次性分期，还是每月自动续费？"
         elif tail == "label":
-            question = "这个订阅或会员叫什么名字？"
+            question = f"{subject}叫什么名字？"
         elif tail == "monthly_cost":
-            question = "这个会员每个月大概扣多少钱？"
+            question = f"{subject}每个月大概扣多少钱？"
         elif field == "income.positive_total":
             question = "请确认一下你每个月的生活费和兼职收入大概是多少。"
         else:
@@ -692,6 +822,7 @@ class IntakeService:
         preview.pop("no_debts", None)
         for debt in preview.get("debts", []):
             debt.pop("nominal_apr_status", None)
+            debt.pop("kind", None)
         return preview
 
     @staticmethod

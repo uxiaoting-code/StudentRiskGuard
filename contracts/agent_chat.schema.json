@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_chat.schema.json",
-  "title": "M5.6 Agent Chat Contracts",
+  "title": "M5.7.1 Agent Chat Contracts",
   "$defs": {
     "AgentChatRequest": {
       "additionalProperties": false,

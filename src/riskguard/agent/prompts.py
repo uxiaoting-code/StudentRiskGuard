@@ -51,6 +51,9 @@ EXTRACTION_SYSTEM_PROMPT = """你是 StudentRiskGuard 的自然语言信息抽�
 21. 不要编造用户没有提供的金额、期数、利率或订阅费用；不要重复询问 existing_draft 中已经存在的字段。
 22. 已结清负债和订阅规则不得回退：已结清记录不进入正式债务，订阅只进入 recurring_subscriptions。
 23. 用户明确说利率“不知道、不清楚、没告诉我”时，nominal_apr 必须为 null，nominal_apr_status 必须为 unknown；不能写成 0，其他字段完整时仍可返回 complete。
+23.1. 用户说“剩余本金”时填写 remaining_principal；用户说“总共还要还/总还款”时填写 total_remaining_repayment，不能把总还款额直接当成 remaining_principal。
+23.2. 不要自行计算 remaining_periods。可以填写 total_remaining_repayment、monthly_payment 和 final_payment，后端会用确定性代码检查或推导。
+23.3. 自动续费、会员、订阅、连续包月、月费属于 recurring_subscriptions，不属于 debts；如果标签是“会员分期”等歧义表达，不要擅自判断，交给后端追问。
 24. 用户尚未提到利率时，nominal_apr_status 使用 not_mentioned；用户提供了具体利率时使用 provided。
 25. 不要输出用户原文，不要复述整段自然语言。"""
 

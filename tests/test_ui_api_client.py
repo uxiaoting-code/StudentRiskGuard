@@ -131,3 +131,83 @@ def test_api_client_auth_flow_sends_bearer_token() -> None:
     assert calls[0] == ("POST", "/api/v1/auth/login", None)
     assert calls[1] == ("GET", "/api/v1/auth/me", "Bearer token-1")
     assert calls[2] == ("POST", "/api/v1/auth/logout", "Bearer token-1")
+
+
+@pytest.mark.parametrize(
+    ("detail", "expected"),
+    [
+        (
+            [
+                {
+                    "type": "string_pattern_mismatch",
+                    "loc": ["body", "username"],
+                    "msg": "String should match pattern",
+                }
+            ],
+            "用户名需为 3～32 位，只能使用英文字母、数字和下划线，例如 test_student_1109。",
+        ),
+        (
+            [
+                {
+                    "type": "string_too_short",
+                    "loc": ["body", "username"],
+                    "msg": "String should have at least 3 characters",
+                }
+            ],
+            "用户名至少需要 3 个字符。",
+        ),
+        (
+            [
+                {
+                    "type": "string_too_short",
+                    "loc": ["body", "password"],
+                    "msg": "String should have at least 8 characters",
+                }
+            ],
+            "密码至少需要 8 个字符。",
+        ),
+    ],
+)
+def test_api_client_maps_auth_validation_errors_to_friendly_messages(
+    detail: list[dict],
+    expected: str,
+) -> None:
+    http_client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(422, json={"detail": detail})
+        )
+    )
+    client = ApiClient(base_url="http://test.local", http_client=http_client)
+    try:
+        with pytest.raises(ApiClientError) as error:
+            client.register("bad-name", "short")
+    finally:
+        http_client.close()
+
+    assert error.value.message == expected
+    for internal in ("username", "password", "body", "string_"):
+        assert internal not in error.value.message
+
+
+def test_api_client_unifies_invalid_login_credentials_message() -> None:
+    http_client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(
+                401,
+                json={
+                    "error": {
+                        "code": "INVALID_CREDENTIALS",
+                        "message": "用户名或密码错误。",
+                    }
+                },
+            )
+        )
+    )
+    client = ApiClient(base_url="http://test.local", http_client=http_client)
+    try:
+        with pytest.raises(ApiClientError) as error:
+            client.login("student_demo", "wrongpass123")
+    finally:
+        http_client.close()
+
+    assert error.value.message == "用户名或密码错误，请检查后重试。"

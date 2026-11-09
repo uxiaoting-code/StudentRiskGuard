@@ -7,6 +7,14 @@ from uuid import uuid4
 import streamlit as st
 
 from riskguard import __version__
+from riskguard.auth.validation import (
+    LOGIN_NOTE,
+    PASSWORD_RULE_MESSAGE,
+    REGISTRATION_RULES,
+    USERNAME_RULE_MESSAGE,
+    validate_login_form,
+    validate_registration_form,
+)
 from riskguard.models import FIXED_BOUNDARY_NOTICE
 from riskguard.ui.api_client import ApiClient, ApiClientError
 from riskguard.ui.components import (
@@ -190,12 +198,22 @@ def _render_auth_sidebar(client: ApiClient) -> None:
             key="auth_mode",
             horizontal=True,
         )
+        if mode == "注册":
+            st.caption(REGISTRATION_RULES)
+        else:
+            st.caption(LOGIN_NOTE)
+
         with st.form("auth_form", clear_on_submit=False):
-            username = st.text_input("用户名", key="auth_username")
+            username = st.text_input(
+                "用户名",
+                key="auth_username",
+                help=USERNAME_RULE_MESSAGE,
+            )
             password = st.text_input(
                 "密码",
                 type="password",
                 key="auth_password",
+                help=PASSWORD_RULE_MESSAGE,
             )
             confirm = ""
             if mode == "注册":
@@ -203,24 +221,31 @@ def _render_auth_sidebar(client: ApiClient) -> None:
                     "确认密码",
                     type="password",
                     key="auth_confirm_password",
+                    help=PASSWORD_RULE_MESSAGE,
                 )
             submitted = st.form_submit_button(mode)
             if submitted:
-                username = username.strip()
-                if not username or not password:
-                    st.error("请输入用户名和密码。")
-                elif mode == "注册" and password != confirm:
-                    st.error("两次输入的密码不一致。")
+                clean_username = username.strip()
+                if mode == "登录":
+                    validation_error = validate_login_form(clean_username, password)
+                else:
+                    validation_error = validate_registration_form(
+                        clean_username,
+                        password,
+                        confirm,
+                    )
+
+                if validation_error:
+                    st.error(validation_error)
                 else:
                     try:
                         if mode == "登录":
-                            response = client.login(username, password)
+                            response = client.login(clean_username, password)
                         else:
-                            response = client.register(username, password)
+                            response = client.register(clean_username, password)
                         _set_authenticated_user(client, response)
                     except ApiClientError as exc:
                         st.error(exc.message)
-
 
 def _render_sidebar(client: ApiClient) -> None:
     st.sidebar.header("当前自检")

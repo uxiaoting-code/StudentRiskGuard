@@ -7,6 +7,15 @@ from typing import Any
 
 import httpx
 
+from riskguard.auth.validation import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    PASSWORD_RULE_MESSAGE,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH,
+    USERNAME_RULE_MESSAGE,
+)
+
 
 class ApiClientError(Exception):
     """A user-displayable backend error."""
@@ -39,6 +48,41 @@ class ApiClient:
         return httpx.Client(timeout=60.0)
 
     @staticmethod
+    def _pydantic_auth_error(detail: Any) -> str | None:
+        if not isinstance(detail, list):
+            return None
+
+        username_errors: list[str] = []
+        password_errors: list[str] = []
+        for item in detail:
+            if not isinstance(item, dict):
+                continue
+            location = item.get("loc")
+            error_type = str(item.get("type", ""))
+            if not isinstance(location, (list, tuple)):
+                continue
+            if "username" in location:
+                username_errors.append(error_type)
+            if "password" in location:
+                password_errors.append(error_type)
+
+        if username_errors:
+            if "string_too_short" in username_errors:
+                return f"用户名至少需要 {USERNAME_MIN_LENGTH} 个字符。"
+            if "string_too_long" in username_errors:
+                return f"用户名最多只能有 {USERNAME_MAX_LENGTH} 个字符。"
+            return USERNAME_RULE_MESSAGE
+
+        if password_errors:
+            if "string_too_short" in password_errors:
+                return f"密码至少需要 {PASSWORD_MIN_LENGTH} 个字符。"
+            if "string_too_long" in password_errors:
+                return f"密码最多只能有 {PASSWORD_MAX_LENGTH} 个字符。"
+            return PASSWORD_RULE_MESSAGE
+
+        return None
+
+    @staticmethod
     def _response_error(response: httpx.Response) -> str:
         try:
             payload = response.json()
@@ -47,9 +91,16 @@ class ApiClient:
         if isinstance(payload, dict):
             error = payload.get("error")
             if isinstance(error, dict) and error.get("message"):
+                if error.get("code") == "INVALID_CREDENTIALS":
+                    return "用户名或密码错误，请检查后重试。"
                 return str(error["message"])
-            detail = payload.get("detail")
-            if detail:
+
+            friendly_validation_error = ApiClient._pydantic_auth_error(
+                payload.get("detail")
+            )
+            if friendly_validation_error:
+                return friendly_validation_error
+            if payload.get("detail"):
                 return "输入或请求不符合要求，请检查后重试。"
         return "后端请求失败，请稍后重试。"
 
@@ -139,7 +190,6 @@ class ApiClient:
     def list_education_topics(self) -> list[dict[str, Any]]:
         result = self._request("GET", "/api/v1/education/topics")
         return result if isinstance(result, list) else []
-
 
     def delete_conversation(self, conversation_id: str) -> None:
         self._request("DELETE", f"/api/v1/agent/conversations/{conversation_id}")

@@ -366,3 +366,42 @@ def test_ambiguous_monthly_statement_does_not_become_one_period() -> None:
     assert second.preview["debts"][0]["monthly_payment"] == 500
     assert "remaining_principal" not in second.preview["debts"][0]
     assert len(model.calls) == 2
+
+
+def test_add_debt_action_appends_without_overwriting_existing_debt() -> None:
+    first_draft = {
+        "income": {
+            "monthly_disposable_allowance": 2000,
+            "monthly_part_time_income": 500,
+        },
+        "debts": [
+            {
+                "label": "购物分期",
+                "remaining_principal": 4800,
+                "monthly_payment": 520,
+                "remaining_periods": 10,
+                "nominal_apr_status": "unknown",
+            }
+        ],
+        "no_debts": False,
+    }
+    service, model, _ = build_service([extraction_response(first_draft)])
+    first = service.submit(NaturalLanguageIntakeRequest(message="我有购物分期和收入"))
+    second = service.submit(
+        NaturalLanguageIntakeRequest(
+            conversation_id=first.conversation_id,
+            message="我还有一笔白条分期，本金1200，每月200，还剩6期，利率不知道。",
+            intake_action="add_debt",
+        )
+    )
+
+    assert second.status == "ready_for_confirmation"
+    assert second.preview is not None
+    debts = second.preview["debts"]
+    assert [item["label"] for item in debts] == ["购物分期", "白条"]
+    assert debts[0]["remaining_principal"] == 4800
+    assert debts[1]["remaining_principal"] == 1200
+    assert debts[1]["monthly_payment"] == 200
+    assert debts[1]["remaining_periods"] == 6
+    assert debts[1].get("nominal_apr") is None
+    assert len(model.calls) == 1

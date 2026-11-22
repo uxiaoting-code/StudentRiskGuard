@@ -64,5 +64,14 @@ def test_education_model_cannot_add_freeform_content() -> None:
 def test_all_education_cards_remain_pending_until_signoff() -> None:
     service = EducationService(llm_client=FakeEducationModel({}))
 
-    assert len(service.list_topics()) == 10
+    assert len(service.list_topics()) == 25
     assert all(card.review_status == "pending" for card in service.list_topics())
+
+
+def test_education_retrieval_can_combine_multiple_related_topics() -> None:
+    service = EducationService(llm_client=FakeEducationModel({}))
+    topics = service.find_topics("低月供、现金流和IRR有什么关系？", limit=3)
+    topic_ids = [card.topic_id for card in topics]
+    assert "low_payment_high_cost" in topic_ids
+    assert "installment_cashflow" in topic_ids
+    assert "irr_real_cost" in topic_ids

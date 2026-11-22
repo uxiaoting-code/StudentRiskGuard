@@ -107,6 +107,7 @@ def build_extraction_messages(
     user_message: str,
     existing_draft: AssessmentDraft | None = None,
     previous_question: str | None = None,
+    intake_action: str = "auto",
 ) -> list[dict[str, Any]]:
     """Build the one extraction request. Raw text goes only to this model call."""
 
@@ -117,6 +118,7 @@ def build_extraction_messages(
             "content": json.dumps(
                 {
                     "task": "从本轮用户消息中抽取或补充评估草稿。",
+                    "intake_action": intake_action,
                     "existing_draft": (
                         existing_draft.model_dump(mode="json", exclude_none=True)
                         if existing_draft is not None
@@ -166,8 +168,8 @@ EDUCATION_SYSTEM_PROMPT = f"""你是 StudentRiskGuard 的金融教育回答 Agen
 你不生成自由文本，只能从提供的 EducationCard 中选择来源片段编号。
 
 严格遵守：
-1. key_point_indices 使用从 1 开始的编号，只能选 key_points 中已有的项目。
-2. action_indices 使用从 1 开始的编号，只能选 allowed_actions 中已有的项目；最多选一项，也可以不选。
+1. key_point_indices 使用从 1 开始的编号，最多选择3个 key_points 中已有的项目。
+2. action_indices 使用从 1 开始的编号，只能选 allowed_actions 中已有的项目；最多选两项，也可以不选。
 3. 不得生成、改写或补全任何金融事实、建议或数字。
 4. 不推荐具体平台、品牌、分期产品或投资产品。
 5. 不承诺收益，不承诺解决债务，不提供以贷养贷方案。

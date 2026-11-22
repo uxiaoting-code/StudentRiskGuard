@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from riskguard.core.debt_calculation import calculate_debts
 from riskguard.models import AssessmentMetrics, AssessmentRequest
 
 
@@ -39,6 +40,7 @@ def compute_metrics(request: AssessmentRequest) -> AssessmentMetrics:
     )
     monthly_payment_total = monthly_fixed_outflow_total(request)
     monthly_surplus = income_total - monthly_payment_total
+    debt_calculations = calculate_debts(request.debts)
     return AssessmentMetrics(
         income_total=round(income_total, 6),
         monthly_payment_total=round(monthly_payment_total, 6),
@@ -49,4 +51,12 @@ def compute_metrics(request: AssessmentRequest) -> AssessmentMetrics:
         debt_count=len(request.debts),
         monthly_surplus=round(monthly_surplus, 6),
         surplus_ratio=round(monthly_surplus / income_total, 8),
+        scheduled_repayment_total=round(
+            sum(item.scheduled_total_repayment for item in debt_calculations),
+            2,
+        ),
+        estimated_financing_cost_total=round(
+            sum(item.estimated_financing_cost for item in debt_calculations),
+            2,
+        ),
     )

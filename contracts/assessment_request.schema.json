@@ -138,6 +138,26 @@
             }
           ],
           "default": null
+        },
+        "final_payment": {
+          "anyOf": [
+            {
+              "type": "number",
+              "exclusiveMinimum": 0,
+              "maximum": 100000
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "derived_fields": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
         }
       }
     },

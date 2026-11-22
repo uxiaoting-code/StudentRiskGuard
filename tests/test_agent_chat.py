@@ -132,7 +132,7 @@ def scenario_response() -> dict[str, Any]:
                                 "remaining_principal": 2400,
                                 "monthly_payment": 300,
                                 "remaining_periods": 8,
-                                "nominal_apr": 0.12,
+                                "nominal_apr": None,
                             },
                             "missing_fields": [],
                             "warnings": [],
@@ -234,7 +234,8 @@ def test_chat_risk_explanation_reuses_assessment_result() -> None:
     assert response.status_code == 200
     body = response.json()
     assert body["status"] == "completed"
-    assert body["assessment"]["risk"]["level"] == "中风险"
+    assert body["assessment"] is None
+    assert "主要风险来源" in body["reply"]
     assert body["explanation"]["boundary_notice"] == FIXED_BOUNDARY_NOTICE
     assert body["tool_activity"][0]["tool"] == "run_risk_assessment"
 
@@ -428,7 +429,7 @@ def intake_response() -> dict[str, Any]:
                                         "remaining_principal": 4800,
                                         "monthly_payment": 520,
                                         "remaining_periods": 10,
-                                        "nominal_apr": 0.12,
+                                        "nominal_apr_status": "unknown",
                                     }
                                 ],
                                 "no_debts": False,

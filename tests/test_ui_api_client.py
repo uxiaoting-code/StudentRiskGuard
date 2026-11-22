@@ -64,6 +64,7 @@ def test_api_client_chat_sends_expected_payload() -> None:
     assert captured["body"] == {
         "message": "什么是IRR？",
         "conversation_id": "conv-001",
+        "intake_action": "auto",
     }
     assert result["status"] == "education_answer"
 

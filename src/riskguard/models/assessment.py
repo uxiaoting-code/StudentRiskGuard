@@ -47,9 +47,11 @@ class Debt(ContractModel):
     remaining_principal: float = Field(gt=0, le=1_000_000)
     monthly_payment: float = Field(gt=0, le=100_000)
     remaining_periods: int = Field(ge=1, le=120)
+    final_payment: float | None = Field(default=None, gt=0, le=100_000)
     # This field is reference data only. IRR is solved from cash flows, so an
     # unknown contractual rate must not block an otherwise complete assessment.
     nominal_apr: float | None = Field(default=None, ge=0, le=1)
+    derived_fields: list[str] = Field(default_factory=list)
 
 
 class RecurringSubscription(ContractModel):
@@ -96,6 +98,22 @@ class AssessmentMetrics(ContractModel):
     debt_count: int = Field(ge=0)
     monthly_surplus: float
     surplus_ratio: float
+    scheduled_repayment_total: float = Field(default=0, ge=0)
+    estimated_financing_cost_total: float = 0
+
+
+class DebtCalculation(ContractModel):
+    debt_id: str = Field(min_length=1)
+    remaining_principal: float = Field(gt=0)
+    monthly_payment: float = Field(gt=0)
+    remaining_periods: int = Field(ge=1)
+    final_payment: float | None = Field(default=None, gt=0)
+    nominal_apr: float | None = Field(default=None, ge=0, le=1)
+    scheduled_total_repayment: float = Field(ge=0)
+    estimated_financing_cost: float
+    consistency_status: Literal["consistent", "conflict", "unknown"]
+    field_sources: dict[str, str] = Field(default_factory=dict)
+    warnings: list[str] = Field(default_factory=list)
 
 
 class IrrResult(ContractModel):
@@ -162,6 +180,9 @@ class AssessmentAssumptions(ContractModel):
     currency: Literal["CNY"]
     income_constant: bool
     forecast_months: int = Field(ge=1, le=36)
+    rate_basis: Literal["fixed_nominal_apr_monthly_compounding_equal_payment"] = (
+        "fixed_nominal_apr_monthly_compounding_equal_payment"
+    )
 
 
 class AssessmentResult(ContractModel):
@@ -171,6 +192,7 @@ class AssessmentResult(ContractModel):
     parameter_version: str = Field(min_length=1)
     metrics: AssessmentMetrics
     irr_results: list[IrrResult] = Field(max_length=20)
+    debt_calculations: list[DebtCalculation] = Field(default_factory=list, max_length=20)
     risk: RiskAssessment
     cashflow_series: list[CashflowPoint] = Field(min_length=1, max_length=36)
     warnings: list[str]

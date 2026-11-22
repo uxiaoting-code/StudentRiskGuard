@@ -181,8 +181,16 @@ class ApiClient:
             f"/api/v1/agent/intake/{conversation_id}/confirm",
         )
 
-    def chat(self, message: str, conversation_id: str | None = None) -> dict[str, Any]:
-        payload: dict[str, Any] = {"message": message}
+    def chat(
+        self,
+        message: str,
+        conversation_id: str | None = None,
+        intake_action: str = "auto",
+    ) -> dict[str, Any]:
+        payload: dict[str, Any] = {
+            "message": message,
+            "intake_action": intake_action,
+        }
         if conversation_id:
             payload["conversation_id"] = conversation_id
         return self._request("POST", "/api/v1/agent/chat", json=payload)

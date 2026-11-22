@@ -19,6 +19,7 @@ from uuid import uuid4
 
 
 from riskguard.agent.deepseek import ChatModel
+from riskguard.core.debt_calculation import derive_debt_terms, payment_from_principal
 from riskguard.agent.prompts import build_extraction_messages
 from riskguard.agent.runner import AgentRunner
 from riskguard.agent.schemas import (
@@ -285,32 +286,56 @@ class IntakeService:
                 warnings=["MAX_CLARIFICATION_TURNS_REACHED"],
             )
 
-        deterministic_draft = (
-            self._apply_pending_answer(existing, payload.message)
-            if existing is not None
-            else None
-        )
-        if deterministic_draft is not None:
-            extraction = ExtractionResult(
-                status="needs_more_info",
-                draft=deterministic_draft,
-                warnings=["DETERMINISTIC_FIELD_FILLED"],
-            )
-        else:
-            try:
-                extraction = self._extract(
-                    user_message=payload.message,
-                    existing_draft=existing.draft if existing is not None else None,
-                    previous_question=previous_question
-                    or (existing.pending_question if existing is not None else None),
-                )
-            except Exception:
-                # Do not expose model internals or raw user text in the response.
+        if payload.intake_action == "add_debt" and existing is not None:
+            added_debt = self._parse_added_debt(payload.message)
+            if added_debt is not None:
                 extraction = ExtractionResult(
-                    status="invalid",
-                    draft=None,
-                    warnings=["本次自然语言解析暂时不可用，请重新描述或改用结构化表单。"],
+                    status="needs_more_info",
+                    draft=AssessmentDraft(debts=[added_debt], no_debts=False),
+                    warnings=["DETERMINISTIC_NEW_DEBT_ADDED"],
                 )
+            else:
+                try:
+                    extraction = self._extract(
+                        user_message=payload.message,
+                        existing_draft=existing.draft,
+                        previous_question=None,
+                        intake_action="add_debt",
+                    )
+                except Exception:
+                    extraction = ExtractionResult(
+                        status="invalid",
+                        draft=None,
+                        warnings=["本次新增债务暂时无法解析，请换一种说法或使用结构化表单。"],
+                    )
+        else:
+            deterministic_draft = (
+                self._apply_pending_answer(existing, payload.message)
+                if existing is not None
+                else None
+            )
+            if deterministic_draft is not None:
+                extraction = ExtractionResult(
+                    status="needs_more_info",
+                    draft=deterministic_draft,
+                    warnings=["DETERMINISTIC_FIELD_FILLED"],
+                )
+            else:
+                try:
+                    extraction = self._extract(
+                        user_message=payload.message,
+                        existing_draft=existing.draft if existing is not None else None,
+                        previous_question=previous_question
+                        or (existing.pending_question if existing is not None else None),
+                        intake_action=payload.intake_action,
+                    )
+                except Exception:
+                    # Do not expose model internals or raw user text in the response.
+                    extraction = ExtractionResult(
+                        status="invalid",
+                        draft=None,
+                        warnings=["本次自然语言解析暂时不可用，请重新描述或改用结构化表单。"],
+                    )
 
         if extraction.status == "invalid":
             state = self._save_state(
@@ -356,10 +381,47 @@ class IntakeService:
                 warnings=["EXTRACTION_EMPTY"],
             )
 
-        merged_draft = self._merge_drafts(
-            existing.draft if existing is not None else AssessmentDraft(),
-            extraction.draft,
-        )
+        if payload.intake_action == "add_debt" and existing is not None:
+            incoming_debts = list(extraction.draft.debts or [])
+            if len(incoming_debts) != 1:
+                state = self._save_state(
+                    existing=existing,
+                    conversation_id=conversation_id,
+                    draft=existing.draft,
+                    missing_fields=existing.missing_fields,
+                    pending_question="请一次只补充一笔债务，并写明名称、本金、月供和期数。",
+                    turn=used_turns,
+                    pending_field="debts.new",
+                )
+                return IntakeResponse(
+                    conversation_id=state.conversation_id,
+                    status="needs_more_info",
+                    reply=state.pending_question or "请一次只补充一笔债务。",
+                    missing_fields=state.missing_fields,
+                    clarification_turns=used_turns,
+                    max_clarification_turns=self._max_clarification_turns,
+                    remaining_clarification_turns=max(
+                        0, self._max_clarification_turns - used_turns
+                    ),
+                    warnings=["ONE_NEW_DEBT_PER_TURN"],
+                )
+            new_debt = incoming_debts[0]
+            existing_ids = {item.id for item in (existing.draft.debts or []) if item.id}
+            new_id = f"debt_{uuid4().hex[:8]}"
+            while new_id in existing_ids:
+                new_id = f"debt_{uuid4().hex[:8]}"
+            new_debt = new_debt.model_copy(update={"id": new_id})
+            merged_draft = existing.draft.model_copy(
+                update={
+                    "debts": [*(existing.draft.debts or []), new_debt],
+                    "no_debts": False,
+                }
+            )
+        else:
+            merged_draft = self._merge_drafts(
+                existing.draft if existing is not None else AssessmentDraft(),
+                extraction.draft,
+            )
         merged_draft = self._apply_debt_kind_signal(merged_draft, payload.message)
         merged_draft = self._apply_message_signals(merged_draft, payload.message)
         merged_draft = self._mark_unknown_apr(
@@ -557,6 +619,40 @@ class IntakeService:
             )
 
     @classmethod
+    def _parse_added_debt(cls, user_message: str) -> DebtDraft | None:
+        normalized = user_message.strip().lower()
+        label_match = re.search(
+            r"(?:还有|再有|新增|补充)(?:一笔)?\s*([^，。,\s]{1,20}?)(?:分期|账单)",
+            normalized,
+        )
+        label = label_match.group(1) if label_match else "新增分期"
+        principal = _extract_labeled_money(
+            normalized,
+            ("剩余本金", "本金", "现在还欠", "还欠", "欠了", "欠款"),
+        )
+        monthly = _extract_labeled_money(
+            normalized,
+            ("每月还", "每个月还", "每月", "每个月", "月供"),
+        )
+        periods = None
+        if any(term in normalized for term in ("还剩", "还要还", "剩余", "期")):
+            periods = _parse_period_value(normalized)
+        apr_status = None
+        if "利率" in normalized and any(term in normalized for term in _UNKNOWN_TERMS):
+            apr_status = "unknown"
+        if principal is None and monthly is None and periods is None:
+            return None
+        return DebtDraft(
+            label=label,
+            remaining_principal=principal,
+            monthly_payment=monthly,
+            remaining_periods=periods,
+            nominal_apr=None,
+            nominal_apr_status=apr_status or "not_mentioned",
+            kind="installment",
+        )
+
+    @classmethod
     def _apply_pending_answer(
         cls,
         existing: DraftState,
@@ -583,6 +679,41 @@ class IntakeService:
                 return None
             debt = debts[index]
             updates: dict[str, Any] = {}
+
+            if field_name == "consistency_confirmation":
+                if any(term in normalized for term in ("以月供", "实际月供", "确认月供", "是")):
+                    updates["consistency_confirmed"] = True
+                    updates["calculation_warnings"] = []
+                elif any(term in normalized for term in ("以利率", "按利率", "重新计算月供")):
+                    if (
+                        debt.remaining_principal is not None
+                        and debt.remaining_periods is not None
+                        and debt.nominal_apr is not None
+                    ):
+                        recomputed = round(
+                            payment_from_principal(
+                                debt.remaining_principal,
+                                debt.remaining_periods,
+                                debt.nominal_apr,
+                            ),
+                            2,
+                        )
+                        derived_fields = list(debt.derived_fields)
+                        if "monthly_payment" not in derived_fields:
+                            derived_fields.append("monthly_payment")
+                        updates.update(
+                            {
+                                "monthly_payment": recomputed,
+                                "consistency_confirmed": True,
+                                "consistency_status": "consistent",
+                                "calculation_warnings": [],
+                                "derived_fields": derived_fields,
+                            }
+                        )
+                if not updates:
+                    return None
+                debts[index] = debt.model_copy(update=updates)
+                return draft.model_copy(update={"debts": debts})
 
             monthly = _extract_labeled_money(
                 normalized,
@@ -813,12 +944,14 @@ class IntakeService:
         user_message: str,
         existing_draft: AssessmentDraft | None,
         previous_question: str | None = None,
+        intake_action: str = "auto",
     ) -> ExtractionResult:
         response = self._llm_client.complete(
             messages=build_extraction_messages(
                 user_message=user_message,
                 existing_draft=existing_draft,
                 previous_question=previous_question,
+                intake_action=intake_action,
             ),
             response_format={"type": "json_object"},
         )
@@ -1032,40 +1165,49 @@ class IntakeService:
     @classmethod
     def _derive_debt_fields(cls, debt: DebtDraft) -> DebtDraft:
         derivations = list(debt.derived_fields)
+        if debt.settled is True or debt.remaining_periods == 0:
+            return debt.model_copy(
+                update={
+                    "settled": True,
+                    "consistency_status": "unknown",
+                    "consistency_confirmed": False,
+                    "calculation_warnings": [],
+                }
+            )
         principal = debt.remaining_principal
-        total = debt.total_remaining_repayment
-        monthly = debt.monthly_payment
-        periods = debt.remaining_periods
-        final_payment = debt.final_payment
-        original_amount = debt.original_amount
-        remaining_ratio = debt.remaining_ratio
         if (
             principal is None
-            and original_amount is not None
-            and remaining_ratio is not None
+            and debt.original_amount is not None
+            and debt.remaining_ratio is not None
         ):
-            principal = round(original_amount * remaining_ratio, 2)
+            principal = round(debt.original_amount * debt.remaining_ratio, 2)
             if "remaining_principal" not in derivations:
                 derivations.append("remaining_principal")
-        if periods is None and total is not None and monthly is not None:
-            ratio = total / monthly
-            rounded = round(ratio)
-            if abs(ratio - rounded) < 1e-9 and rounded >= 1:
-                periods = int(rounded)
-                if "remaining_periods" not in derivations:
-                    derivations.append("remaining_periods")
-            elif final_payment is not None and total > monthly:
-                full_payments = int(total // monthly)
-                remainder = round(total - full_payments * monthly, 6)
-                if abs(remainder - final_payment) < 1e-9:
-                    periods = full_payments + 1
-                    if "remaining_periods" not in derivations:
-                        derivations.append("remaining_periods")
+
+        derivation = derive_debt_terms(
+            principal=principal,
+            monthly_payment=debt.monthly_payment,
+            periods=debt.remaining_periods,
+            nominal_apr=debt.nominal_apr,
+            total_repayment=debt.total_remaining_repayment,
+            final_payment=debt.final_payment,
+        )
+        for name in derivation.derived_fields:
+            if name not in derivations:
+                derivations.append(name)
+        status = derivation.consistency_status
+        confirmed = debt.consistency_confirmed if status == "conflict" else False
         return debt.model_copy(
             update={
-                "remaining_principal": principal,
-                "remaining_periods": periods,
+                "remaining_principal": derivation.remaining_principal,
+                "monthly_payment": derivation.monthly_payment,
+                "remaining_periods": derivation.remaining_periods,
+                "final_payment": derivation.final_payment,
+                "total_remaining_repayment": derivation.scheduled_total_repayment,
                 "derived_fields": derivations,
+                "calculation_warnings": derivation.warnings,
+                "consistency_status": status,
+                "consistency_confirmed": confirmed,
             }
         )
 
@@ -1214,6 +1356,11 @@ class IntakeService:
                         and debt.nominal_apr_status != "unknown"
                     ):
                         missing.append(f"debts[{index}].nominal_apr")
+                    if (
+                        debt.consistency_status == "conflict"
+                        and not debt.consistency_confirmed
+                    ):
+                        missing.append(f"debts[{index}].consistency_confirmation")
 
         for index, subscription in enumerate(draft.recurring_subscriptions or []):
             if subscription.label is None:
@@ -1296,6 +1443,11 @@ class IntakeService:
             question = f"{subject}叫什么名字？"
         elif tail == "monthly_cost":
             question = f"{subject}每个月大概扣多少钱？"
+        elif tail == "consistency_confirmation":
+            question = (
+                f"{subject}填写的月供与按名义利率推算的结果不一致。"
+                "请确认是以实际月供为准，还是按名义利率重新计算月供。"
+            )
         elif field == "income.positive_total":
             question = "请确认一下你每个月的生活费和兼职收入大概是多少。"
         else:
@@ -1407,7 +1559,9 @@ class IntakeService:
                         "remaining_principal": debt.remaining_principal,
                         "monthly_payment": debt.monthly_payment,
                         "remaining_periods": debt.remaining_periods,
+                        "final_payment": debt.final_payment,
                         "nominal_apr": debt.nominal_apr,
+                        "derived_fields": debt.derived_fields,
                     }
                 )
 

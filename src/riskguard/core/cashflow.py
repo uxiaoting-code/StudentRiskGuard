@@ -21,11 +21,18 @@ def compute_cashflow(request: AssessmentRequest) -> list[CashflowPoint]:
     running_surplus = 0.0
     series: list[CashflowPoint] = []
     for month_index in range(1, request.forecast_months + 1):
-        debt_payment = subscription_total + sum(
-            debt.monthly_payment
-            for debt in request.debts
-            if month_index <= debt.remaining_periods
-        )
+        scheduled_debt_payment = 0.0
+        for debt in request.debts:
+            if month_index > debt.remaining_periods:
+                continue
+            if (
+                debt.final_payment is not None
+                and month_index == debt.remaining_periods
+            ):
+                scheduled_debt_payment += debt.final_payment
+            else:
+                scheduled_debt_payment += debt.monthly_payment
+        debt_payment = subscription_total + scheduled_debt_payment
         surplus = income_total - debt_payment
         running_surplus += surplus
         series.append(

@@ -23,6 +23,7 @@ DEFAULTS: dict[str, Any] = {
     "last_intake_response": None,
     "last_user_message": None,
     "last_error": None,
+    "intake_action": None,
     "auth_token": None,
     "auth_user": None,
     "form_initialized": False,
@@ -50,6 +51,7 @@ def initialize_form_defaults() -> None:
     st.session_state["insufficient_months_last_3"] = 0
     st.session_state["income_drop_30_cannot_cover"] = False
     st.session_state["financial_cognition_score"] = 4.0
+    st.session_state["behavior_completed"] = False
     _ensure_debt_keys(1)
     _ensure_subscription_keys(0)
 
@@ -57,10 +59,10 @@ def initialize_form_defaults() -> None:
 def _ensure_debt_keys(count: int) -> None:
     defaults = {
         "label": "购物分期",
-        "principal": 3000.0,
-        "payment": 300.0,
-        "periods": 10,
-        "apr": 0.12,
+        "principal": 0.0,
+        "payment": 0.0,
+        "periods": 1,
+        "apr": 12.0,
         "apr_unknown": False,
     }
     for index in range(count):
@@ -107,7 +109,7 @@ def apply_request_to_form(request: dict[str, Any]) -> None:
         nominal_apr = debt.get("nominal_apr")
         st.session_state[f"debt_{index}_apr_unknown"] = nominal_apr is None
         st.session_state[f"debt_{index}_apr"] = float(
-            nominal_apr if nominal_apr is not None else 0.12
+            nominal_apr * 100 if nominal_apr is not None else 12.0
         )
 
     subscriptions = request.get("recurring_subscriptions", []) or []

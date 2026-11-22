@@ -7,6 +7,12 @@ from uuid import uuid4
 import streamlit as st
 
 from riskguard import __version__
+from riskguard.core.debt_calculation import (
+    calculate_debt,
+    financing_cost,
+    payment_from_principal,
+    principal_from_payment,
+)
 from riskguard.auth.validation import (
     LOGIN_NOTE,
     PASSWORD_RULE_MESSAGE,
@@ -15,8 +21,9 @@ from riskguard.auth.validation import (
     validate_login_form,
     validate_registration_form,
 )
-from riskguard.models import FIXED_BOUNDARY_NOTICE
+from riskguard.models import Debt, FIXED_BOUNDARY_NOTICE
 from riskguard.ui.api_client import ApiClient, ApiClientError
+from riskguard.ui.formatting import format_currency
 from riskguard.ui.components import (
     render_agent_response,
     render_assessment,
@@ -319,9 +326,15 @@ def _build_form_request() -> dict:
                 st.session_state.get(f"debt_{index}_periods", 1)
             ),
         }
+        principal = float(debt["remaining_principal"])
+        payment = float(debt["monthly_payment"])
+        periods = int(debt["remaining_periods"])
+        if principal <= 0 or payment <= 0 or periods <= 0:
+            raise ValueError(f"第 {index + 1} 笔分期需要填写大于0的本金、月供和期数")
         if not st.session_state.get(f"debt_{index}_apr_unknown", False):
-            debt["nominal_apr"] = float(
-                st.session_state.get(f"debt_{index}_apr", 0)
+            debt["nominal_apr"] = round(
+                float(st.session_state.get(f"debt_{index}_apr", 0)) / 100.0,
+                8,
             )
         debts.append(debt)
 
@@ -378,6 +391,17 @@ def _run_form_assessment(client: ApiClient) -> None:
         ):
             st.error("生活费和兼职收入合计必须大于零。")
             return
+        if not st.session_state.get("behavior_completed", False):
+            st.error("请先在“行为与韧性自查”中确认信息已填写。")
+            return
+        for index, debt_payload in enumerate(request["debts"], 1):
+            calculation = calculate_debt(Debt.model_validate(debt_payload))
+            if calculation.consistency_status == "conflict":
+                st.error(
+                    f"第 {index} 笔分期存在数据冲突："
+                    + " ".join(calculation.warnings)
+                )
+                return
         client.create_session(request)
         response = client.agent_assess(request["session_id"])
         st.session_state.session_id = request["session_id"]
@@ -394,9 +418,119 @@ def _run_form_assessment(client: ApiClient) -> None:
         st.error(f"表单字段不合法：{exc}")
 
 
+def _render_debt_calculator() -> None:
+    with st.expander("分期计算助手", expanded=True):
+        st.caption("先用你知道的信息自动计算，再载入下方表单。系统不会把未知利率当作0%。")
+        mode = st.radio(
+            "我知道哪些信息？",
+            [
+                "每月还款 + 剩余期数，计算总还款",
+                "本金 + 年利率 + 剩余期数，计算月供",
+                "每月还款 + 年利率 + 剩余期数，反推本金",
+            ],
+            horizontal=False,
+            key="debt_calculator_mode",
+        )
+        c1, c2, c3 = st.columns(3)
+        principal = c1.number_input(
+            "剩余本金（元）",
+            min_value=0.0,
+            value=0.0,
+            step=100.0,
+            key="calc_principal",
+        )
+        payment = c2.number_input(
+            "每月还款（元）",
+            min_value=0.0,
+            value=0.0,
+            step=50.0,
+            key="calc_payment",
+        )
+        periods = c3.number_input(
+            "剩余期数",
+            min_value=0,
+            max_value=120,
+            value=0,
+            step=1,
+            key="calc_periods",
+        )
+        apr_percent = st.number_input(
+            "名义年利率（%），不知道可填0并选择月供模式",
+            min_value=0.0,
+            max_value=100.0,
+            value=0.0,
+            step=0.1,
+            key="calc_apr_percent",
+        )
+        if st.button("帮我计算", key="run_debt_calculator"):
+            try:
+                apr = apr_percent / 100.0 if apr_percent > 0 else None
+                result: dict[str, float | None] = {}
+                if mode.startswith("每月还款 + 剩余期数"):
+                    if payment <= 0 or periods <= 0:
+                        raise ValueError("请输入每月还款和剩余期数")
+                    result["monthly_payment"] = payment
+                    result["remaining_periods"] = float(periods)
+                    result["total"] = payment * periods
+                    if principal > 0:
+                        result["principal"] = principal
+                        result["cost"] = financing_cost(payment * periods, principal)
+                elif mode.startswith("本金 + 年利率"):
+                    if principal <= 0 or periods <= 0 or apr is None:
+                        raise ValueError("请输入本金、年利率和剩余期数")
+                    computed_payment = payment_from_principal(principal, periods, apr)
+                    result["principal"] = principal
+                    result["monthly_payment"] = round(computed_payment, 2)
+                    result["remaining_periods"] = float(periods)
+                    result["total"] = round(computed_payment * periods, 2)
+                    result["cost"] = financing_cost(computed_payment * periods, principal)
+                else:
+                    if payment <= 0 or periods <= 0 or apr is None:
+                        raise ValueError("请输入月供、年利率和剩余期数")
+                    computed_principal = principal_from_payment(payment, periods, apr)
+                    result["principal"] = round(computed_principal, 2)
+                    result["monthly_payment"] = payment
+                    result["remaining_periods"] = float(periods)
+                    result["total"] = payment * periods
+                    result["cost"] = financing_cost(payment * periods, computed_principal)
+                st.session_state.debt_calc_result = result
+                st.session_state.debt_calc_apr_percent = apr_percent
+            except (TypeError, ValueError) as exc:
+                st.error(str(exc))
+        result = st.session_state.get("debt_calc_result")
+        if result:
+            a, b, c = st.columns(3)
+            a.metric("剩余本金", format_currency(result.get("principal")))
+            b.metric("每月还款", format_currency(result.get("monthly_payment")))
+            c.metric("合同剩余还款", format_currency(result.get("total")))
+            if result.get("cost") is not None:
+                st.metric("预计资金成本", format_currency(result.get("cost")))
+            if st.button("载入到下方分期表单", key="load_debt_calc_result"):
+                st.session_state.debt_count = max(
+                    1, int(st.session_state.get("debt_count", 1))
+                )
+                ensure_dynamic_keys()
+                st.session_state["debt_0_principal"] = float(
+                    result.get("principal") or 0
+                )
+                st.session_state["debt_0_payment"] = float(
+                    result.get("monthly_payment") or 0
+                )
+                st.session_state["debt_0_periods"] = int(
+                    result.get("remaining_periods") or 1
+                )
+                apr_percent_saved = float(
+                    st.session_state.get("debt_calc_apr_percent") or 0
+                )
+                st.session_state["debt_0_apr"] = apr_percent_saved
+                st.session_state["debt_0_apr_unknown"] = apr_percent_saved <= 0
+                st.success("已载入第1笔分期，请检查后提交。")
+
+
 def _render_structured_tab(client: ApiClient) -> None:
     st.header("结构化表单自检")
     st.caption("适合已知每笔分期字段的用户；所有金额单位为人民币元。")
+    _render_debt_calculator()
     _render_sample_buttons()
 
     with st.form("structured_assessment_form"):
@@ -457,14 +591,14 @@ def _render_structured_tab(client: ApiClient) -> None:
                         key=f"debt_{index}_apr_unknown",
                     )
                     st.number_input(
-                        "名义年利率",
+                        "名义年利率（%）",
                         min_value=0.0,
-                        max_value=1.0,
-                        step=0.01,
+                        max_value=100.0,
+                        step=0.1,
                         format="%.2f",
                         key=f"debt_{index}_apr",
                         disabled=apr_unknown,
-                        help="未知利率不会被当作 0%；勾选后不提交该字段。",
+                        help="例如12%就输入12；未知利率请勾选上方选项，不会当作0%。",
                     )
 
         with st.expander("存款与订阅", expanded=False):
@@ -523,6 +657,11 @@ def _render_structured_tab(client: ApiClient) -> None:
                 step=0.5,
                 key="financial_cognition_score",
             )
+            st.checkbox(
+                "我已确认以上行为与韧性信息",
+                key="behavior_completed",
+                help="未确认时不会把缺失信息当作低风险。",
+            )
 
         st.number_input(
             "预测月份",
@@ -557,11 +696,14 @@ def _handle_chat_submit(client: ApiClient, message: str) -> None:
         response = client.chat(
             message,
             conversation_id=st.session_state.get("conversation_id"),
+            intake_action=st.session_state.get("intake_action") or "auto",
         )
         st.session_state.conversation_id = response.get("conversation_id")
         if response.get("status") == "ready_for_confirmation":
             _remember_debt_labels(response.get("preview"))
         st.session_state.last_chat_response = response
+        if response.get("status") == "ready_for_confirmation":
+            st.session_state.intake_action = None
         st.session_state.last_error = None
         st.rerun()
     except ApiClientError as exc:
@@ -649,7 +791,11 @@ def _render_chat_tab(client: ApiClient) -> None:
                 key="continue_intake",
             ):
                 st.session_state.last_user_message = None
-                st.info("请直接输入要补充的信息，例如“我还有一笔白条分期”。")
+                st.session_state.intake_action = "add_debt"
+                st.info(
+                    "请一次补充一笔债务，例如“我还有一笔白条分期，"
+                    "本金1200，每月200，还剩6期，利率不知道”。"
+                )
             if st.button(
                 "确认并生成评估报告",
                 key="confirm_chat",

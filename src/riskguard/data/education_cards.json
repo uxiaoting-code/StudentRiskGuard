@@ -14,8 +14,18 @@
       "不推荐具体借贷平台或分期产品",
       "不承诺降低债务或保证还款成功"
     ],
-    "keywords": ["低月供", "总成本", "期限", "分期成本"],
-    "review_status": "pending"
+    "keywords": [
+      "低月供",
+      "总成本",
+      "期限",
+      "分期成本"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解低月供不等于低总成本及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "irr_real_cost",
@@ -32,8 +42,19 @@
       "不承诺任何投资收益",
       "不推荐借贷或投资产品"
     ],
-    "keywords": ["irr", "真实年化", "年化成本", "利率", "名义利率"],
-    "review_status": "pending"
+    "keywords": [
+      "irr",
+      "真实年化",
+      "年化成本",
+      "利率",
+      "名义利率"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解IRR和真实年化成本及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "installment_cashflow",
@@ -50,8 +71,18 @@
       "不建议用新的借款覆盖旧债",
       "不保证分期可以解决现金流问题"
     ],
-    "keywords": ["分期期限", "现金流", "月供", "固定收入"],
-    "review_status": "pending"
+    "keywords": [
+      "分期期限",
+      "现金流",
+      "月供",
+      "固定收入"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解分期期限与现金流及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "debt_stacking",
@@ -68,8 +99,18 @@
       "不以贷养贷",
       "不推荐通过新增借款缓解旧债"
     ],
-    "keywords": ["多笔", "叠加", "小额分期", "月供合计"],
-    "review_status": "pending"
+    "keywords": [
+      "多笔",
+      "叠加",
+      "小额分期",
+      "月供合计"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解多笔小额负债叠加及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "subscription_renewal",
@@ -86,8 +127,18 @@
       "不推销任何会员或订阅产品",
       "不承诺取消订阅一定可以解决债务"
     ],
-    "keywords": ["订阅", "会员", "自动续费", "连续包月"],
-    "review_status": "pending"
+    "keywords": [
+      "订阅",
+      "会员",
+      "自动续费",
+      "连续包月"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解订阅和自动续费及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "savings_buffer",
@@ -104,8 +155,18 @@
       "不承诺存款一定可以覆盖全部债务",
       "不推荐具体理财产品"
     ],
-    "keywords": ["存款", "缓冲", "应急", "现金缺口"],
-    "review_status": "pending"
+    "keywords": [
+      "存款",
+      "缓冲",
+      "应急",
+      "现金缺口"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解存款缓冲及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "part_time_income_volatility",
@@ -122,8 +183,18 @@
       "不保证兼职收入会持续稳定",
       "不推荐用借贷应对收入波动"
     ],
-    "keywords": ["兼职", "收入波动", "收入下降", "不稳定"],
-    "review_status": "pending"
+    "keywords": [
+      "兼职",
+      "收入波动",
+      "收入下降",
+      "不稳定"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解兼职收入波动及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "borrow_to_repay",
@@ -141,8 +212,18 @@
       "不推荐任何借贷平台",
       "不保证可以消除债务"
     ],
-    "keywords": ["以贷养贷", "借新还旧", "周转", "旧债"],
-    "review_status": "pending"
+    "keywords": [
+      "以贷养贷",
+      "借新还旧",
+      "周转",
+      "旧债"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解以贷养贷风险及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "budget_and_consumption",
@@ -159,8 +240,18 @@
       "不推荐具体商品或消费平台",
       "不承诺预算一定可以解决债务"
     ],
-    "keywords": ["预算", "理性消费", "消费", "支出"],
-    "review_status": "pending"
+    "keywords": [
+      "预算",
+      "理性消费",
+      "消费",
+      "支出"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解理性消费和预算及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
   },
   {
     "topic_id": "support_and_communication",
@@ -177,7 +268,526 @@
       "不替代专业法律、债务或医疗建议",
       "不承诺沟通一定可以获得资金支持"
     ],
-    "keywords": ["家人", "沟通", "学校", "支持", "求助"],
+    "keywords": [
+      "家人",
+      "沟通",
+      "学校",
+      "支持",
+      "求助"
+    ],
+    "review_status": "pending",
+    "description": "帮助理解与家人或学校支持资源沟通及其对月度现金流的影响。",
+    "common_misconceptions": [],
+    "examples": [],
+    "related_topic_ids": [],
+    "sources": []
+  },
+  {
+    "topic_id": "nominal_vs_flat_rate",
+    "title": "名义利率和月费率",
+    "description": "区分按年化表示的利率与按月费率或手续费率计算的口径。",
+    "key_points": [
+      "月费率乘期数得到的百分比不等于真实年化成本。",
+      "比较分期时应确认利率口径、计息方式和是否包含手续费。"
+    ],
+    "common_misconceptions": [
+      "月费率0.6%不能简单理解为年化7.2%的真实成本。"
+    ],
+    "examples": [
+      "不同平台使用不同口径时，应先统一口径再比较。"
+    ],
+    "allowed_actions": [
+      "向机构确认利率是按月费率还是年化利率计算。",
+      "把手续费和还款总额一起纳入比较。"
+    ],
+    "forbidden_claims": [
+      "不推荐具体金融产品"
+    ],
+    "keywords": [
+      "月费率",
+      "手续费率",
+      "费率",
+      "名义利率"
+    ],
+    "related_topic_ids": [
+      "irr_real_cost",
+      "fees_and_charges"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "fees_and_charges",
+    "title": "手续费和服务费",
+    "description": "理解分期中除月供之外可能存在的费用。",
+    "key_points": [
+      "手续费、服务费和担保费可能不计入页面展示的名义利率。",
+      "应要求查看合同中的综合成本和全部收费项目。"
+    ],
+    "common_misconceptions": [
+      "免息不一定等于没有其他费用。"
+    ],
+    "examples": [
+      "月供看似不变，但一次性服务费会提高实际资金成本。"
+    ],
+    "allowed_actions": [
+      "核对合同和还款计划中的全部费用。",
+      "把费用与月供一起计算实际支出。"
+    ],
+    "forbidden_claims": [
+      "不判断费用是否合法或是否应借款"
+    ],
+    "keywords": [
+      "手续费",
+      "服务费",
+      "担保费",
+      "免息"
+    ],
+    "related_topic_ids": [
+      "nominal_vs_flat_rate",
+      "irr_real_cost"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "equal_principal_vs_equal_payment",
+    "title": "等额本金和等额本息",
+    "description": "理解两种常见还款方式在月供和总成本上的差别。",
+    "key_points": [
+      "等额本息每期还款通常较稳定，等额本金前期还款通常更高。",
+      "两种方式的利息总额和现金流节奏不同，不能只比较首期月供。"
+    ],
+    "common_misconceptions": [
+      "月供低就一定总成本更低。"
+    ],
+    "examples": [
+      "相同本金和利率下，不同还款方式会影响前期现金流压力。"
+    ],
+    "allowed_actions": [
+      "确认合同采用哪种还款方式。",
+      "按实际月供和剩余期数检查未来现金流。"
+    ],
+    "forbidden_claims": [
+      "不推荐具体还款产品或平台"
+    ],
+    "keywords": [
+      "等额本息",
+      "等额本金",
+      "还款方式"
+    ],
+    "related_topic_ids": [
+      "installment_cashflow",
+      "irr_real_cost"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "minimum_payment",
+    "title": "最低还款",
+    "description": "理解最低还款可能延长资金占用和增加后续成本。",
+    "key_points": [
+      "最低还款只解决当期最低支付要求，不等于当期债务已经下降很多。",
+      "长期只支付最低金额可能让剩余期限和成本增加。"
+    ],
+    "common_misconceptions": [
+      "按时支付最低还款就不会产生任何成本。"
+    ],
+    "examples": [
+      "账单余额下降很慢时，应核对计息规则和还款顺序。"
+    ],
+    "allowed_actions": [
+      "查看完整账单和剩余应还金额。",
+      "优先核对必要支出与固定还款。"
+    ],
+    "forbidden_claims": [
+      "不推荐借款或周转平台"
+    ],
+    "keywords": [
+      "最低还款",
+      "账单",
+      "循环利息"
+    ],
+    "related_topic_ids": [
+      "irr_real_cost",
+      "overdue_cost"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "overdue_cost",
+    "title": "逾期和资金缺口",
+    "description": "理解逾期费用和信用记录风险的基本概念。",
+    "key_points": [
+      "逾期可能产生额外费用，并影响后续金融服务体验。",
+      "出现还款困难时，应尽早核对合同规则并联系可信任的支持资源。"
+    ],
+    "common_misconceptions": [
+      "逾期只影响一笔账单，不会影响其他计划。"
+    ],
+    "examples": [
+      "多笔分期在同一时间扣款时，单一资金缺口可能影响多笔还款。"
+    ],
+    "allowed_actions": [
+      "列出所有扣款日和最低支付要求。",
+      "尽早与家人、学校或机构沟通实际困难。"
+    ],
+    "forbidden_claims": [
+      "不承诺消除逾期记录或减免费用"
+    ],
+    "keywords": [
+      "逾期",
+      "违约",
+      "扣款失败",
+      "资金缺口"
+    ],
+    "related_topic_ids": [
+      "support_and_communication",
+      "minimum_payment"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "early_repayment",
+    "title": "提前还款",
+    "description": "理解提前还款前需要核对的费用和条款。",
+    "key_points": [
+      "提前还款可能涉及手续费、计息截止规则或剩余本金口径。",
+      "不能只按剩余月供总额判断提前还款金额。"
+    ],
+    "common_misconceptions": [
+      "提前还款金额一定等于剩余月供之和。"
+    ],
+    "examples": [
+      "合同可能要求先获取提前结清金额，再确认是否减免后续利息。"
+    ],
+    "allowed_actions": [
+      "先向机构确认提前结清金额和费用。",
+      "将结清金额与剩余本金区分记录。"
+    ],
+    "forbidden_claims": [
+      "不判断提前还款是否划算"
+    ],
+    "keywords": [
+      "提前还款",
+      "提前结清",
+      "违约金"
+    ],
+    "related_topic_ids": [
+      "fees_and_charges",
+      "debt_inventory"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "bnpl",
+    "title": "先用后付和BNPL",
+    "description": "理解先用后付产品的分期和扣款特征。",
+    "key_points": [
+      "先用后付可能把多笔消费拆成不同扣款日。",
+      "需要把各笔剩余应还、月供和到期日一起纳入固定支出。"
+    ],
+    "common_misconceptions": [
+      "单笔金额小就不需要记录。"
+    ],
+    "examples": [
+      "多个平台同时扣款时，小额账单也会形成现金流压力。"
+    ],
+    "allowed_actions": [
+      "汇总所有先用后付账单。",
+      "标记已结清和正在还款的账单。"
+    ],
+    "forbidden_claims": [
+      "不推荐任何BNPL平台"
+    ],
+    "keywords": [
+      "先用后付",
+      "BNPL",
+      "分期付款",
+      "小额分期"
+    ],
+    "related_topic_ids": [
+      "debt_stacking",
+      "subscription_renewal"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "credit_report_basics",
+    "title": "征信记录基础概念",
+    "description": "了解征信信息与借贷审批的基本边界。",
+    "key_points": [
+      "征信记录与贷款审批不是本工具能够判断的内容。",
+      "应通过正规渠道核对个人信用信息并保护身份信息。"
+    ],
+    "common_misconceptions": [
+      "任何还款问题都会立刻产生相同后果。"
+    ],
+    "examples": [
+      "若担心征信记录，应向正规机构核实正式规则。"
+    ],
+    "allowed_actions": [
+      "通过正规渠道了解个人信用信息。",
+      "不要向陌生人提供身份证、银行卡或验证码。"
+    ],
+    "forbidden_claims": [
+      "不判断贷款审批或信用资格"
+    ],
+    "keywords": [
+      "征信",
+      "信用记录",
+      "审批",
+      "身份证"
+    ],
+    "related_topic_ids": [
+      "support_and_communication",
+      "overdue_cost"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "income_drop",
+    "title": "收入下降压力测试",
+    "description": "理解固定还款在收入下降时的现金流风险。",
+    "key_points": [
+      "固定还款不会因为兼职收入下降而自动减少。",
+      "应使用较低收入情景检查生活费和必要支出是否仍能覆盖。"
+    ],
+    "common_misconceptions": [
+      "按最高收入月份规划长期月供。"
+    ],
+    "examples": [
+      "如果收入减少两成，原本的月结余可能转为赤字。"
+    ],
+    "allowed_actions": [
+      "检查收入下降20%和30%时的月结余。",
+      "提前列出可延后的可选支出。"
+    ],
+    "forbidden_claims": [
+      "不预测未来一定失业或一定降薪"
+    ],
+    "keywords": [
+      "收入下降",
+      "压力测试",
+      "兼职波动",
+      "月结余"
+    ],
+    "related_topic_ids": [
+      "part_time_income_volatility",
+      "installment_cashflow"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "large_expense",
+    "title": "大额支出与现金流",
+    "description": "理解一次性大额支出对短期现金流的影响。",
+    "key_points": [
+      "学费、医疗和设备维修等支出可能和月供在同一时期叠加。",
+      "应把未来几个月的大额支出单独列出，而不是只看当前月。"
+    ],
+    "common_misconceptions": [
+      "只要当月月供能还就没有风险。"
+    ],
+    "examples": [
+      "一笔大额支出叠加多笔分期时，可能迅速消耗存款缓冲。"
+    ],
+    "allowed_actions": [
+      "列出未来三个月的大额必要支出。",
+      "提前调整可选消费。"
+    ],
+    "forbidden_claims": [
+      "不推荐借款应对大额支出"
+    ],
+    "keywords": [
+      "大额支出",
+      "学费",
+      "医疗",
+      "现金流"
+    ],
+    "related_topic_ids": [
+      "savings_buffer",
+      "installment_cashflow"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "emergency_fund",
+    "title": "应急资金",
+    "description": "理解应急资金用于短期缓冲而非长期还款。",
+    "key_points": [
+      "应急资金应优先覆盖必要生活和突发支出。",
+      "过度依赖应急资金偿还长期分期可能削弱风险承受能力。"
+    ],
+    "common_misconceptions": [
+      "有存款就等于现金流安全。"
+    ],
+    "examples": [
+      "存款能覆盖几个月固定支出，是评估安全边际的一种方式。"
+    ],
+    "allowed_actions": [
+      "计算存款可覆盖的必要支出月数。",
+      "保留基本生活和应急资金。"
+    ],
+    "forbidden_claims": [
+      "不推荐具体理财或借款产品"
+    ],
+    "keywords": [
+      "应急资金",
+      "存款",
+      "缓冲",
+      "安全边际"
+    ],
+    "related_topic_ids": [
+      "savings_buffer",
+      "large_expense"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "needs_wants",
+    "title": "必要支出和可选消费",
+    "description": "理解预算中必要、可选和可延后支出的差别。",
+    "key_points": [
+      "必要支出通常先于可选消费得到保障。",
+      "可选消费可以延后，但不应用新的高成本负债来维持。"
+    ],
+    "common_misconceptions": [
+      "预算就是尽量不花任何钱。"
+    ],
+    "examples": [
+      "把订阅、娱乐和冲动购物标记为可延后，有助于应对收入波动。"
+    ],
+    "allowed_actions": [
+      "将支出分为必要、可选和可延后三类。",
+      "下单前检查未来固定还款。"
+    ],
+    "forbidden_claims": [
+      "不推荐具体商品或平台"
+    ],
+    "keywords": [
+      "必要支出",
+      "可选消费",
+      "预算",
+      "冲动消费"
+    ],
+    "related_topic_ids": [
+      "budget_and_consumption",
+      "subscription_renewal"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "debt_inventory",
+    "title": "建立债务清单",
+    "description": "用同一张清单记录所有债务，避免遗漏扣款。",
+    "key_points": [
+      "每笔债务至少记录名称、剩余欠款、月供、期数和扣款日。",
+      "已结清记录与正在还款记录要分开。"
+    ],
+    "common_misconceptions": [
+      "只记大额债务，不记小额分期和会员。"
+    ],
+    "examples": [
+      "把所有固定扣款放到同一张清单，才能看出真实月供总压力。"
+    ],
+    "allowed_actions": [
+      "整理每笔债务的名称和剩余期数。",
+      "标记已结清记录，避免重复计算。"
+    ],
+    "forbidden_claims": [
+      "不推荐任何债务产品"
+    ],
+    "keywords": [
+      "债务清单",
+      "账单",
+      "扣款日",
+      "已结清"
+    ],
+    "related_topic_ids": [
+      "debt_stacking",
+      "overdue_cost"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "high_pressure_sales",
+    "title": "识别高压营销话术",
+    "description": "识别低月供、限时优惠和催单话术中的信息缺口。",
+    "key_points": [
+      "营销话术可能强调月供而忽略总成本、期限和费用。",
+      "在信息不完整时，不要因为限时催促而仓促做决定。"
+    ],
+    "common_misconceptions": [
+      "限时优惠就一定适合自己。"
+    ],
+    "examples": [
+      "“每天只要几元”可能隐藏更长的还款周期。"
+    ],
+    "allowed_actions": [
+      "先要求提供完整还款计划和总成本。",
+      "给自己留出核对时间，不在催促下做决定。"
+    ],
+    "forbidden_claims": [
+      "不评价具体商家或平台"
+    ],
+    "keywords": [
+      "营销话术",
+      "低月供",
+      "限时",
+      "催单"
+    ],
+    "related_topic_ids": [
+      "low_payment_high_cost",
+      "nominal_vs_flat_rate"
+    ],
+    "sources": [],
+    "review_status": "pending"
+  },
+  {
+    "topic_id": "complaint_and_records",
+    "title": "账单记录和沟通证据",
+    "description": "保存必要账单和沟通记录，便于核对问题。",
+    "key_points": [
+      "保存还款计划、扣款记录和客服沟通结果有助于核对差异。",
+      "不要向陌生人发送身份证、银行卡密码和验证码。"
+    ],
+    "common_misconceptions": [
+      "所有问题只能靠重新借款解决。"
+    ],
+    "examples": [
+      "如果月供与合同不一致，先保存截图和还款计划再沟通。"
+    ],
+    "allowed_actions": [
+      "保存合同、账单和扣款记录。",
+      "通过官方渠道核实费用和还款状态。"
+    ],
+    "forbidden_claims": [
+      "不提供法律结论或保证退款"
+    ],
+    "keywords": [
+      "账单记录",
+      "客服",
+      "扣款",
+      "投诉",
+      "验证码"
+    ],
+    "related_topic_ids": [
+      "fees_and_charges",
+      "support_and_communication"
+    ],
+    "sources": [],
     "review_status": "pending"
   }
 ]

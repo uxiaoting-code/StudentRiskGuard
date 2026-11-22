@@ -7,7 +7,7 @@ from streamlit.testing.v1 import AppTest
 
 def _registration_app() -> AppTest:
     app = AppTest.from_file(Path(__file__).resolve().parents[1] / "app.py", default_timeout=20).run()
-    app.radio[0].set_value("注册").run()
+    next(item for item in app.radio if item.label == "账号操作").set_value("注册").run()
     return app
 
 

@@ -7,6 +7,7 @@ from collections.abc import Mapping
 from typing import Any
 
 from riskguard.core.cashflow import compute_cashflow, savings_buffer_warnings
+from riskguard.core.debt_calculation import RATE_BASIS, calculate_debts
 from riskguard.core.irr import compute_irr_results
 from riskguard.core.metrics import compute_metrics
 from riskguard.core.scorecard import compute_risk, load_scorecard
@@ -40,6 +41,7 @@ def run_assessment(
     parameter_version = str(config["version"])
     metrics = compute_metrics(request)
     irr_results = compute_irr_results(request)
+    debt_calculations = calculate_debts(request.debts)
     risk = compute_risk(request, metrics, irr_results, config)
     cashflow = compute_cashflow(request)
 
@@ -65,6 +67,20 @@ def run_assessment(
     if metrics.monthly_surplus < 0:
         warnings.append("当前月度固定支出已经高于月度可支配资金。")
     warnings.extend(savings_buffer_warnings(cashflow, request.savings_balance))
+    for calculation in debt_calculations:
+        for warning in calculation.warnings:
+            if warning not in warnings:
+                warnings.append(warning)
+    income_total = (
+        request.income.monthly_disposable_allowance
+        + request.income.monthly_part_time_income
+    )
+    for ratio, label in ((0.8, "20%"), (0.7, "30%")):
+        stressed_surplus = income_total * ratio - metrics.monthly_payment_total
+        if stressed_surplus < 0:
+            warnings.append(
+                f"若月度收入下降{label}，固定支出可能造成约 {abs(stressed_surplus):.2f} 元月缺口。"
+            )
     if not request.debts:
         warnings.append("当前未录入正在还款的债务，评分只反映收入结构。")
 
@@ -77,6 +93,7 @@ def run_assessment(
         parameter_version=parameter_version,
         metrics=metrics,
         irr_results=irr_results,
+        debt_calculations=debt_calculations,
         risk=risk,
         cashflow_series=cashflow,
         warnings=warnings,
@@ -84,5 +101,6 @@ def run_assessment(
             currency="CNY",
             income_constant=True,
             forecast_months=request.forecast_months,
+            rate_basis=RATE_BASIS,
         ),
     )

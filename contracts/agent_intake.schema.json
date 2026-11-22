@@ -471,6 +471,25 @@
           ],
           "default": null,
           "title": "Settled"
+        },
+        "calculation_warnings": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "consistency_status": {
+          "enum": [
+            "consistent",
+            "conflict",
+            "unknown"
+          ],
+          "default": "unknown"
+        },
+        "consistency_confirmed": {
+          "type": "boolean",
+          "default": false
         }
       },
       "title": "DebtDraft",
@@ -576,6 +595,17 @@
           "format": "date-time",
           "title": "Expires At",
           "type": "string"
+        },
+        "pending_debt_id": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
         }
       },
       "required": [
@@ -808,6 +838,14 @@
           "minLength": 1,
           "title": "Message",
           "type": "string"
+        },
+        "intake_action": {
+          "enum": [
+            "auto",
+            "add_debt",
+            "edit_debt"
+          ],
+          "default": "auto"
         }
       },
       "required": [

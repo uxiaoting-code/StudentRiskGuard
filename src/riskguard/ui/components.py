@@ -111,9 +111,54 @@ def render_assessment(
 
     col5, col6, col7, col8 = st.columns(4)
     col5.metric("月供合计", format_currency(metrics.get("monthly_payment_total")))
-    col6.metric("剩余负债", format_currency(metrics.get("remaining_debt_total")))
+    col6.metric("剩余本金", format_currency(metrics.get("remaining_debt_total")))
     col7.metric("分期笔数", metrics.get("debt_count", "—"))
     col8.metric("收入合计", format_currency(metrics.get("income_total")))
+
+    col9, col10, col11, col12 = st.columns(4)
+    col9.metric(
+        "合同剩余还款",
+        format_currency(metrics.get("scheduled_repayment_total")),
+    )
+    col10.metric(
+        "预计资金成本",
+        format_currency(metrics.get("estimated_financing_cost_total")),
+    )
+    col11.metric("预测月份", result.get("assumptions", {}).get("forecast_months", "—"))
+    col12.metric("利率口径", "等额本息")
+
+    calculations = result.get("debt_calculations", []) or []
+    if calculations:
+        st.markdown("**逐笔还款明细**")
+        for item in calculations:
+            label = format_debt_name(item.get("debt_id"), debt_labels)
+            state = {
+                "consistent": "一致",
+                "conflict": "存在差异",
+                "unknown": "利率未知",
+            }.get(item.get("consistency_status"), "—")
+            with st.expander(f"{label} · {state}", expanded=False):
+                c1, c2, c3 = st.columns(3)
+                c1.metric("剩余本金", format_currency(item.get("remaining_principal")))
+                c2.metric("每月还款", format_currency(item.get("monthly_payment")))
+                c3.metric("剩余期数", item.get("remaining_periods", "—"))
+                c4, c5, c6 = st.columns(3)
+                c4.metric(
+                    "合同还款总额",
+                    format_currency(item.get("scheduled_total_repayment")),
+                )
+                c5.metric(
+                    "预计资金成本",
+                    format_currency(item.get("estimated_financing_cost")),
+                )
+                c6.metric(
+                    "名义年利率",
+                    "未知"
+                    if item.get("nominal_apr") is None
+                    else format_rate(item.get("nominal_apr")),
+                )
+                for warning in item.get("warnings", []):
+                    st.warning(warning)
 
     st.markdown("**四维风险贡献**")
     dimensions = risk.get("dimensions", [])
@@ -247,9 +292,21 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
                 total_text = (
                     f"总共还要还 {format_currency(debt.get('total_remaining_repayment'))}，"
                 )
-            derived_text = ""
-            if "remaining_periods" in (debt.get("derived_fields") or []):
-                derived_text = "（期数由系统根据总还款额和月供计算）"
+            derivation_notes: list[str] = []
+            derived_fields = debt.get("derived_fields") or []
+            if "remaining_principal" in derived_fields:
+                derivation_notes.append("欠款按购买价和未还比例估算")
+            if "remaining_periods" in derived_fields:
+                derivation_notes.append("期数由系统根据总还款额和月供计算")
+            derived_text = (
+                f"（{'；'.join(derivation_notes)}）" if derivation_notes else ""
+            )
+            calculated_total = debt.get("total_remaining_repayment")
+            total_text = (
+                f"合同剩余还款总额 {format_currency(calculated_total)}，"
+                if calculated_total is not None
+                else ""
+            )
             st.write(
                 f"- {label}：还欠 {format_currency(debt.get('remaining_principal'))}，"
                 f"{total_text}"
@@ -257,6 +314,8 @@ def render_intake_preview(preview: dict[str, Any] | None) -> None:
                 f"还要还 {debt.get('remaining_periods', '—')} 个月{derived_text}；"
                 f"{rate_text}。"
             )
+            for warning in debt.get("calculation_warnings", []):
+                st.warning(warning)
 
     subscriptions = preview.get("recurring_subscriptions") or []
     if subscriptions:
@@ -394,6 +453,9 @@ def render_chat_response(
         return
 
     if status == "completed":
+        if response.get("reply") and not response.get("assessment"):
+            st.markdown("**Agent回答**")
+            st.write(response["reply"])
         if response.get("scenario"):
             render_scenario(response["scenario"])
         if response.get("assessment"):

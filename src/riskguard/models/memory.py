@@ -70,6 +70,8 @@ class IncomeDraft(ContractModel):
 class DebtDraft(ContractModel):
     id: str | None = Field(default=None, min_length=1, max_length=32)
     label: str | None = Field(default=None, min_length=1, max_length=30)
+    original_amount: float | None = Field(default=None, gt=0, le=1_000_000)
+    remaining_ratio: float | None = Field(default=None, gt=0, le=1)
     remaining_principal: float | None = Field(default=None, gt=0, le=1_000_000)
     total_remaining_repayment: float | None = Field(default=None, gt=0, le=1_000_000)
     final_payment: float | None = Field(default=None, gt=0, le=100_000)
@@ -78,6 +80,9 @@ class DebtDraft(ContractModel):
     nominal_apr: float | None = Field(default=None, ge=0, le=1)
     nominal_apr_status: Literal["not_mentioned", "unknown", "provided"] | None = None
     derived_fields: list[str] = Field(default_factory=list)
+    calculation_warnings: list[str] = Field(default_factory=list)
+    consistency_status: Literal["consistent", "conflict", "unknown"] = "unknown"
+    consistency_confirmed: bool = False
     kind: Literal["unknown", "installment", "subscription"] | None = None
     settled: bool | None = None
 
@@ -114,6 +119,9 @@ class DraftState(ContractModel):
     draft: AssessmentDraft
     missing_fields: list[str] = Field(default_factory=list)
     pending_question: str | None = Field(default=None, max_length=500)
+    pending_field: str | None = Field(default=None, max_length=100)
+    pending_debt_id: str | None = Field(default=None, min_length=1, max_length=32)
+    no_progress_turns: int = Field(default=0, ge=0, le=10)
     current_debt_index: int | None = Field(default=None, ge=0)
     current_debt_label: str | None = Field(default=None, max_length=30)
     clarification_turns: int = Field(default=0, ge=0, le=50)

@@ -179,7 +179,7 @@ class ChatOrchestrator:
         elif (
             not explicit_out_of_scope
             and draft is not None
-            and intent not in {"clarification", "assessment_intake"}
+            and intent not in {"clarification", "assessment_intake", "education"}
         ):
             intent = "clarification"
 
@@ -209,6 +209,7 @@ class ChatOrchestrator:
                 NaturalLanguageIntakeRequest(
                     conversation_id=intake_conversation_id,
                     message=request.message,
+                    intake_action=request.intake_action,
                 ),
                 previous_question=previous_question,
             )
@@ -223,12 +224,31 @@ class ChatOrchestrator:
         if intent == "risk_explanation":
             if conversation is None or conversation.session_id is None:
                 return self._ask_for_assessment(conversation_id)
-            return self._handle_risk_explanation(conversation_id, conversation.session_id)
+            return self._handle_risk_explanation(
+                conversation_id,
+                conversation.session_id,
+                request.message,
+            )
 
         if intent == "scenario_simulation":
             if conversation is None or conversation.session_id is None:
                 return self._ask_for_assessment(conversation_id)
             return self._handle_scenario(conversation_id, conversation.session_id, request.message)
+
+        if intent == "general_help":
+            self._remember(
+                conversation_id,
+                current_intent="general_help",
+                last_answer_type="needs_more_info",
+            )
+            return AgentChatResponse(
+                conversation_id=conversation_id,
+                status="needs_more_info",
+                reply=(
+                    "我可以帮你做两件事：一是根据生活费和分期情况做负债压力自查，"
+                    "二是解释IRR、分期成本和现金流等概念。你想先做哪一种？"
+                ),
+            )
 
         return self._error(
             conversation_id,
@@ -237,8 +257,8 @@ class ChatOrchestrator:
         )
 
     def _handle_education(self, conversation_id: str, message: str) -> AgentChatResponse:
-        card = self._education_service.find_topic(message)
-        if card is None:
+        cards = self._education_service.find_topics(message, limit=3)
+        if not cards:
             self._remember(
                 conversation_id,
                 current_intent="out_of_scope",
@@ -251,16 +271,25 @@ class ChatOrchestrator:
             )
 
         started = time.perf_counter()
+        activities: list[ToolActivity] = []
         try:
-            retrieved = self._tool_executor.execute(
-                RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
-                {"topic_id": card.topic_id},
-            )
-            if not hasattr(retrieved, "topic_id"):
-                raise ToolArgumentError("education tool returned an invalid card")
-            answer: EducationAnswer = self._education_service.answer(
+            for card in cards:
+                retrieved = self._tool_executor.execute(
+                    RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
+                    {"topic_id": card.topic_id},
+                )
+                if not hasattr(retrieved, "topic_id"):
+                    raise ToolArgumentError("education tool returned an invalid card")
+                activities.append(
+                    ToolActivity(
+                        tool=RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
+                        status="succeeded",
+                        latency_ms=round((time.perf_counter() - started) * 1000, 2),
+                    )
+                )
+            answer: EducationAnswer = self._education_service.answer_topics(
                 question=message,
-                topic_id=card.topic_id,
+                topic_ids=[card.topic_id for card in cards],
             )
         except (ToolArgumentError, ToolNotFound):
             return self._error(
@@ -269,11 +298,10 @@ class ChatOrchestrator:
                 "EDUCATION_TOOL_FAILED",
             )
 
-        latency_ms = round((time.perf_counter() - started) * 1000, 2)
         self._remember(
             conversation_id,
             current_intent="education",
-            last_topic=card.topic_id,
+            last_topic=cards[0].topic_id,
             last_tool=RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
             last_answer_type="education",
         )
@@ -282,20 +310,15 @@ class ChatOrchestrator:
             status="education_answer",
             reply=answer.answer,
             education=answer,
-            tool_activity=[
-                ToolActivity(
-                    tool=RETRIEVE_EDUCATION_TOPIC_TOOL_NAME,
-                    status="succeeded",
-                    latency_ms=latency_ms,
-                )
-            ],
-            review_status=card.review_status,
+            tool_activity=activities,
+            review_status=answer.review_status,
         )
 
     def _handle_risk_explanation(
         self,
         conversation_id: str,
         session_id: str,
+        message: str,
     ) -> AgentChatResponse:
         response = self._agent_runner.assess(session_id)
         self._remember(
@@ -307,7 +330,7 @@ class ChatOrchestrator:
             last_tool="run_risk_assessment",
             last_answer_type="risk_explanation",
         )
-        if response.status == "error":
+        if response.status == "error" or response.assessment is None:
             return AgentChatResponse(
                 conversation_id=conversation_id,
                 status="error",
@@ -315,16 +338,34 @@ class ChatOrchestrator:
                 error=response.error,
                 tool_activity=response.tool_activity,
             )
-        reply = (
-            response.explanation.summary
-            if response.explanation is not None
-            else "已完成风险解释，请查看结构化评估结果。"
-        )
+
+        dimension_titles = {
+            "debt_to_income": "月供压力",
+            "debt_stack": "多笔负债叠加",
+            "real_cost": "真实资金成本",
+            "behavior_resilience": "行为与韧性",
+        }
+        top_labels = [
+            dimension_titles.get(item, item)
+            for item in response.assessment.risk.top_contributors
+        ]
+        if any(term in message for term in ("怎么改善", "如何改善", "怎么办", "怎么调整")):
+            actions = (response.explanation.actions if response.explanation else [])[:2]
+            reply = "可以从这些地方开始：" + "；".join(actions)
+        elif any(term in message for term in ("哪一项", "最大", "主要来源", "贡献最大")):
+            reply = "当前主要风险来源是：" + "、".join(top_labels) + "。"
+        else:
+            reply = (
+                f"当前报告的风险等级是{response.assessment.risk.level}，"
+                f"主要风险来源是：{'、'.join(top_labels)}。"
+                "具体可以从报告中的风险贡献和现金流明细查看。"
+            )
+
         return AgentChatResponse(
             conversation_id=conversation_id,
             status="completed",
             reply=reply,
-            assessment=response.assessment,
+            assessment=None,
             explanation=response.explanation,
             tool_activity=response.tool_activity,
             error=response.error,

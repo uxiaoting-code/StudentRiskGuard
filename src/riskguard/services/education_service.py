@@ -5,12 +5,13 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from riskguard.agent.deepseek import ChatModel
-from riskguard.agent.prompts import build_education_messages
-from riskguard.agent.safety import is_safe_text
 from riskguard.agent.schemas import EducationAnswer, EducationCard, EducationSelection
 from riskguard.models import FIXED_BOUNDARY_NOTICE
+
+if TYPE_CHECKING:
+    from riskguard.agent.deepseek import ChatModel
 
 
 class EducationTopicNotFound(Exception):
@@ -48,7 +49,7 @@ class EducationService:
             raise EducationTopicNotFound(topic_id)
         return card
 
-    def find_topic(self, message: str) -> EducationCard | None:
+    def find_topics(self, message: str, *, limit: int = 3) -> list[EducationCard]:
         normalized = message.lower()
         scored: list[tuple[int, EducationCard]] = []
         for card in self._cards.values():
@@ -60,14 +61,53 @@ class EducationService:
                     score += 5
             if score:
                 scored.append((score, card))
-        if not scored:
-            return None
         scored.sort(key=lambda item: item[0], reverse=True)
-        return scored[0][1]
+        return [card for _, card in scored[:limit]]
+
+    def find_topic(self, message: str) -> EducationCard | None:
+        topics = self.find_topics(message, limit=1)
+        return topics[0] if topics else None
+
+    def answer_topics(
+        self,
+        *,
+        question: str,
+        topic_ids: list[str],
+    ) -> EducationAnswer:
+        answers = [self.answer(question=question, topic_id=topic_id) for topic_id in topic_ids]
+        excerpts: list[str] = []
+        all_topics: list[str] = []
+        for item in answers:
+            for excerpt in item.source_excerpts:
+                if excerpt not in excerpts:
+                    excerpts.append(excerpt)
+            for topic_id in item.topic_ids:
+                if topic_id not in all_topics:
+                    all_topics.append(topic_id)
+        excerpts = excerpts[:8]
+        answer = "；".join(excerpts)
+        from riskguard.agent.safety import is_safe_text
+
+
+        if not is_safe_text(answer):
+            return self._fallback_answer(self.get_topic(topic_ids[0]))
+        return EducationAnswer(
+            answer=answer,
+            source_excerpts=excerpts,
+            topic_ids=all_topics,
+            boundary_notice=FIXED_BOUNDARY_NOTICE,
+            review_status=(
+                "approved"
+                if all(self.get_topic(topic_id).review_status == "approved" for topic_id in all_topics)
+                else "pending"
+            ),
+        )
 
     def answer(self, *, question: str, topic_id: str) -> EducationAnswer:
         card = self.get_topic(topic_id)
         try:
+            from riskguard.agent.prompts import build_education_messages
+
             response = self._llm_client.complete(
                 messages=build_education_messages(question=question, card=card),
                 response_format={"type": "json_object"},
@@ -132,6 +172,8 @@ class EducationService:
         answer = "；".join(excerpts)
         if len(answer) > 1200:
             raise ValueError("composed education answer is too long")
+        from riskguard.agent.safety import is_safe_text
+
         if not is_safe_text(answer):
             raise ValueError("composed education answer failed safety validation")
         return EducationAnswer(
@@ -144,10 +186,12 @@ class EducationService:
 
     @classmethod
     def _fallback_answer(cls, card: EducationCard) -> EducationAnswer:
-        excerpts = list(card.key_points[:2])
+        excerpts = list(card.key_points[:3])
         if card.allowed_actions:
             excerpts.append(card.allowed_actions[0])
         answer = "；".join(excerpts)
+        from riskguard.agent.safety import is_safe_text
+
         if not is_safe_text(answer):
             excerpts = ["当前内容需要进一步审核，请先核对分期成本和现金流。"]
         return EducationAnswer(

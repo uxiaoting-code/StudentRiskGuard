@@ -154,7 +154,7 @@ FULL_DRAFT = {
             "remaining_principal": 2400,
             "monthly_payment": 300,
             "remaining_periods": 8,
-            "nominal_apr": 0.12,
+            "nominal_apr_status": "unknown",
         }
     ],
     "savings_balance": 0,
@@ -209,7 +209,7 @@ def test_missing_fields_are_asked_and_merged_across_turns() -> None:
                 "label": "花呗",
                 "remaining_principal": 2400,
                 "remaining_periods": 8,
-                "nominal_apr": 0.12,
+                "nominal_apr_status": "unknown",
             }
         ],
         "no_debts": False,
@@ -469,7 +469,7 @@ def test_debt_can_be_added_after_no_debts_statement() -> None:
                                 "remaining_principal": 2400,
                                 "monthly_payment": 300,
                                 "remaining_periods": 8,
-                                "nominal_apr": 0.12,
+                                "nominal_apr_status": "unknown",
                             }
                         ]
                     },
@@ -634,7 +634,8 @@ def test_invalid_supplement_does_not_consume_a_clarification_turn() -> None:
     assert second.clarification_turns == 0
     assert third.status == "needs_more_info"
     assert third.clarification_turns == 1
-    assert len(model.calls) == 3
+    assert len(model.calls) == 2
+    assert third.preview is not None
 
 
 def test_eight_supplements_are_allowed_then_limit_does_not_call_model() -> None:
@@ -718,7 +719,7 @@ def test_known_fields_are_not_asked_again_and_new_named_debt_is_appended() -> No
                         "remaining_principal": 800,
                         "monthly_payment": 200,
                         "remaining_periods": 4,
-                        "nominal_apr": 0.12,
+                        "nominal_apr_status": "unknown",
                     }
                 ]
             },
@@ -747,7 +748,6 @@ def test_known_fields_are_not_asked_again_and_new_named_debt_is_appended() -> No
 
 def test_unknown_nominal_apr_can_complete_and_is_not_treated_as_zero() -> None:
     draft = json.loads(json.dumps(FULL_DRAFT, ensure_ascii=False))
-    draft["debts"][0].pop("nominal_apr")
     service, _, sessions, _ = build_service(
         [
             extraction_response({"draft": draft}),
@@ -819,8 +819,8 @@ def test_apr_not_mentioned_is_asked_once_then_unknown_is_accepted() -> None:
     assert second.preview is not None
     assert second.preview["debts"][0].get("nominal_apr") is None
     assert "nominal_apr_status" not in second.preview["debts"][0]
-    second_prompt = json.loads(model.calls[1]["messages"][1]["content"])
-    assert second_prompt["existing_draft"]["debts"][0]["nominal_apr_status"] == "not_mentioned"
+    assert len(model.calls) == 1
+    assert "DETERMINISTIC_FIELD_FILLED" in second.warnings
 def test_confirmation_is_idempotent_after_draft_is_deleted() -> None:
     service, model, sessions, drafts = build_service(
         [
@@ -872,7 +872,7 @@ def test_two_debts_are_asked_with_their_labels() -> None:
                         "label": "花呗",
                         "remaining_principal": 1000,
                         "remaining_periods": 5,
-                        "nominal_apr": 0.12,
+                        "nominal_apr_status": "unknown",
                     }
                 ]
             },
@@ -884,7 +884,7 @@ def test_two_debts_are_asked_with_their_labels() -> None:
     second = service.submit(
         NaturalLanguageIntakeRequest(
             conversation_id=first.conversation_id,
-            message="花呗本金1000，还剩5期，利率12%。",
+            message="花呗本金1000，还剩5期，利率不知道。",
         )
     )
 
@@ -967,12 +967,13 @@ def test_total_repayment_is_not_silently_used_as_principal() -> None:
     )
     response = service.submit(NaturalLanguageIntakeRequest(message="花呗总还款1000，每月300。"))
 
+    assert response.status == "ready_for_confirmation"
     assert response.preview is not None
     debt = response.preview["debts"][0]
     assert debt["remaining_principal"] == 800
-    assert debt["total_remaining_repayment"] == 900
-    assert debt["remaining_periods"] == 3
-    assert "remaining_periods" in debt["derived_fields"]
+    assert debt["total_remaining_repayment"] == 1000
+    assert debt["remaining_periods"] == 4
+    assert debt["final_payment"] == 100
 
 
 def test_non_divisible_total_payment_asks_for_final_payment() -> None:
@@ -1003,9 +1004,10 @@ def test_non_divisible_total_payment_asks_for_final_payment() -> None:
     )
     response = service.submit(NaturalLanguageIntakeRequest(message="花呗总还款1000，每月300。"))
 
-    assert response.status == "needs_more_info"
-    assert "最后一期" in response.reply
-    assert any(field.endswith(".final_payment") for field in response.missing_fields)
+    assert response.status == "ready_for_confirmation"
+    assert response.preview is not None
+    assert response.preview["debts"][0]["remaining_periods"] == 4
+    assert response.preview["debts"][0]["final_payment"] == 100
 def test_ambiguous_membership_installment_asks_debt_type() -> None:
     service, _, _, _ = build_service(
         [

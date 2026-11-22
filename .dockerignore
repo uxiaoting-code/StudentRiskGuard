@@ -1,0 +1,52 @@
+# Version control and local environments
+.git
+.gitignore
+.venv
+venv
+env
+
+# Python caches and test artifacts
+__pycache__
+**/__pycache__
+*.py[cod]
+.pytest_cache
+.mypy_cache
+.ruff_cache
+.coverage
+.coverage.*
+htmlcov
+build
+dist
+*.egg-info
+
+# Secrets and local configuration
+.env
+.env.*
+.streamlit/secrets.toml
+*.pem
+*.key
+
+# Personal or local data
+data/*.db
+*.db
+*.sqlite
+*.sqlite3
+data/raw
+data/private
+logs
+*.log
+
+# Development, research, and non-runtime assets
+tests
+docs
+analysis
+*.docx
+*.tmp
+*.bak
+~$*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.vscode
+.idea

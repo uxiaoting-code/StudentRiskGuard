@@ -79,3 +79,15 @@ def test_clarification_limit_response_is_valid_contract_data() -> None:
 
     assert intake.status == "clarification_limit"
     assert chat.status == "clarification_limit"
+
+def test_m572_contracts_include_grounding_and_progress_fields() -> None:
+    intake_contract = _load("agent_intake.schema.json")
+    debt_properties = intake_contract["$defs"]["DebtDraft"]["properties"]
+    state_properties = intake_contract["$defs"]["DraftState"]["properties"]
+
+    assert "original_amount" in debt_properties
+    assert "remaining_ratio" in debt_properties
+    assert "pending_field" in state_properties
+    assert "no_progress_turns" in state_properties
+    assert state_properties["no_progress_turns"]["maximum"] == 10
+    assert debt_properties["remaining_ratio"]["anyOf"][0]["maximum"] == 1

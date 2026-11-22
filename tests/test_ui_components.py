@@ -130,3 +130,31 @@ def test_completed_chat_response_forwards_debt_labels(monkeypatch) -> None:
     )
 
     assert captured["debt_labels"] == {"debt_1": "花呗"}
+
+def test_estimated_principal_is_marked_in_intake_preview(monkeypatch) -> None:
+    fake = FakeStreamlit()
+    monkeypatch.setattr(components, "st", fake)
+
+    components.render_intake_preview(
+        {
+            "income": {
+                "monthly_disposable_allowance": 2000,
+                "monthly_part_time_income": 500,
+            },
+            "debts": [
+                {
+                    "label": "电动车分期",
+                    "original_amount": 6000,
+                    "remaining_ratio": 0.5,
+                    "remaining_principal": 3000,
+                    "monthly_payment": 500,
+                    "remaining_periods": 6,
+                    "derived_fields": ["remaining_principal"],
+                }
+            ],
+        }
+    )
+
+    visible = "\n".join(fake.writes + fake.captions)
+    assert "按购买价和未还比例估算" in visible
+    assert "remaining_principal" not in visible

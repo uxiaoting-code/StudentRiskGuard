@@ -4,25 +4,38 @@ from __future__ import annotations
 
 from pydantic import Field
 
+from riskguard.auth.validation import (
+    PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_LENGTH,
+    USERNAME_MAX_LENGTH,
+    USERNAME_MIN_LENGTH,
+    USERNAME_PATTERN_TEXT,
+)
 from riskguard.models.assessment import ContractModel
 
 
 class RegisterRequest(ContractModel):
     username: str = Field(
-        min_length=3,
-        max_length=32,
-        pattern=r"^[A-Za-z0-9_]+$",
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN_TEXT,
     )
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+    )
 
 
 class LoginRequest(ContractModel):
     username: str = Field(
-        min_length=3,
-        max_length=32,
-        pattern=r"^[A-Za-z0-9_]+$",
+        min_length=USERNAME_MIN_LENGTH,
+        max_length=USERNAME_MAX_LENGTH,
+        pattern=USERNAME_PATTERN_TEXT,
     )
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+    )
 
 
 class AuthUser(ContractModel):

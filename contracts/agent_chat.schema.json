@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://studentriskguard.local/schemas/agent_chat.schema.json",
-  "title": "M5.7.1 Agent Chat Contracts",
+  "title": "M5.7.2 Agent Chat Contracts",
   "$defs": {
     "AgentChatRequest": {
       "additionalProperties": false,
@@ -27,6 +27,14 @@
           "minLength": 1,
           "title": "Message",
           "type": "string"
+        },
+        "intake_action": {
+          "enum": [
+            "auto",
+            "add_debt",
+            "edit_debt"
+          ],
+          "default": "auto"
         }
       },
       "required": [
@@ -236,6 +244,10 @@
           "minimum": 1,
           "title": "Forecast Months",
           "type": "integer"
+        },
+        "rate_basis": {
+          "const": "fixed_nominal_apr_monthly_compounding_equal_payment",
+          "default": "fixed_nominal_apr_monthly_compounding_equal_payment"
         }
       },
       "required": [
@@ -281,6 +293,15 @@
         "surplus_ratio": {
           "title": "Surplus Ratio",
           "type": "number"
+        },
+        "scheduled_repayment_total": {
+          "type": "number",
+          "minimum": 0,
+          "default": 0
+        },
+        "estimated_financing_cost_total": {
+          "type": "number",
+          "default": 0
         }
       },
       "required": [
@@ -350,6 +371,90 @@
         },
         "assumptions": {
           "$ref": "#/$defs/AssessmentAssumptions"
+        },
+        "debt_calculations": {
+          "type": "array",
+          "default": [],
+          "maxItems": 20,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "debt_id",
+              "remaining_principal",
+              "monthly_payment",
+              "remaining_periods",
+              "scheduled_total_repayment",
+              "estimated_financing_cost",
+              "consistency_status"
+            ],
+            "properties": {
+              "debt_id": {
+                "type": "string"
+              },
+              "remaining_principal": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "monthly_payment": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "remaining_periods": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "final_payment": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "nominal_apr": {
+                "anyOf": [
+                  {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 1
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "scheduled_total_repayment": {
+                "type": "number",
+                "minimum": 0
+              },
+              "estimated_financing_cost": {
+                "type": "number"
+              },
+              "consistency_status": {
+                "enum": [
+                  "consistent",
+                  "conflict",
+                  "unknown"
+                ]
+              },
+              "field_sources": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "warnings": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         }
       },
       "required": [
@@ -570,7 +675,7 @@
           "items": {
             "type": "string"
           },
-          "maxItems": 3,
+          "maxItems": 8,
           "minItems": 1,
           "title": "Source Excerpts",
           "type": "array"
@@ -657,6 +762,45 @@
           ],
           "title": "Review Status",
           "type": "string"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "common_misconceptions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "examples": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "related_topic_ids": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
+        },
+        "sources": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": []
         }
       },
       "required": [
@@ -680,7 +824,7 @@
           "items": {
             "type": "integer"
           },
-          "maxItems": 2,
+          "maxItems": 3,
           "minItems": 1,
           "title": "Key Point Indices",
           "type": "array"
@@ -689,7 +833,7 @@
           "items": {
             "type": "integer"
           },
-          "maxItems": 1,
+          "maxItems": 2,
           "title": "Action Indices",
           "type": "array"
         }

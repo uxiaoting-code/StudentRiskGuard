@@ -50,6 +50,7 @@ IntentName = Literal[
     "education",
     "scenario_simulation",
     "out_of_scope",
+    "general_help",
 ]
 ChatStatus = Literal[
     "needs_more_info",
@@ -73,6 +74,7 @@ class NaturalLanguageIntakeRequest(ContractModel):
         pattern=r"^[A-Za-z0-9_-]+$",
     )
     message: str = Field(min_length=1, max_length=4000)
+    intake_action: Literal["auto", "add_debt", "edit_debt"] = "auto"
 
 
 class AgentChatRequest(ContractModel):
@@ -85,6 +87,7 @@ class AgentChatRequest(ContractModel):
         pattern=r"^[A-Za-z0-9_-]+$",
     )
     message: str = Field(min_length=1, max_length=4000)
+    intake_action: Literal["auto", "add_debt", "edit_debt"] = "auto"
 
 
 class ConfirmIntakeRequest(ContractModel):
@@ -115,10 +118,15 @@ class ScenarioSimulationResult(ContractModel):
 class EducationCard(ContractModel):
     topic_id: str = Field(min_length=1)
     title: str = Field(min_length=1)
+    description: str | None = None
     key_points: list[str] = Field(min_length=1)
+    common_misconceptions: list[str] = Field(default_factory=list)
+    examples: list[str] = Field(default_factory=list)
     allowed_actions: list[str] = Field(default_factory=list)
     forbidden_claims: list[str] = Field(default_factory=list)
     keywords: list[str] = Field(default_factory=list)
+    related_topic_ids: list[str] = Field(default_factory=list)
+    sources: list[str] = Field(default_factory=list)
     review_status: ReviewStatus = "pending"
 
 
@@ -126,13 +134,13 @@ class EducationSelection(ContractModel):
     """Model output is limited to selecting reviewed card source items."""
 
     topic_id: str = Field(min_length=1)
-    key_point_indices: list[int] = Field(min_length=1, max_length=2)
-    action_indices: list[int] = Field(default_factory=list, max_length=1)
+    key_point_indices: list[int] = Field(min_length=1, max_length=3)
+    action_indices: list[int] = Field(default_factory=list, max_length=2)
 
 
 class EducationAnswer(ContractModel):
     answer: str = Field(min_length=1, max_length=1200)
-    source_excerpts: list[str] = Field(min_length=1, max_length=3)
+    source_excerpts: list[str] = Field(min_length=1, max_length=8)
     topic_ids: list[str] = Field(min_length=1)
     boundary_notice: Literal[
         "本结果仅供金融教育与个人负债压力自查参考，不构成信贷审批、授信、放款或投资建议。"

@@ -53,6 +53,45 @@
         ],
         "title": "Review Status",
         "type": "string"
+      },
+      "description": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null
+      },
+      "common_misconceptions": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "examples": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "related_topic_ids": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "default": []
       }
     },
     "required": [
